@@ -43,8 +43,10 @@ release-keystore, Apple Developer ID/notarization, iOS device signing и
 
 ## 4. Состояние тестов
 
-- `python3 -m unittest discover -s tests -v` — **23/23 OK**.
-- Тот же набор в активном `NEYROLOCK_5/.venv` — **23/23 OK**.
+- `python3 -m unittest discover -s tests -v` — **25 тестов обнаружено:
+  23 OK, 2 Qt UI-теста пропущены** без установленного PySide6.
+- Полный набор в активном `NEYROLOCK_5/.venv` с PySide6 — **25/25 OK**,
+  включая адаптивную геометрию окна 640×480–1764×1148.
 - Android Java URL tests и компиляция `MainActivity` против API 36 — **OK**.
 - Android APK — target API 36, zipalign/apksigner verification — **OK**;
   текущий артефакт подписан debug-ключом.

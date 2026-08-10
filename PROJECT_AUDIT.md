@@ -90,8 +90,8 @@ SDK, глобальное iOS ATS-исключение и неавтономна
 
 | Проверка | Результат |
 |---|---|
-| Python unit/integration tests, system Python | 23/23 OK |
-| Python unit/integration tests, active venv | 23/23 OK |
+| Python unit/integration tests, system Python | 25 обнаружено: 23 OK, 2 Qt UI skipped без PySide6 |
+| Python unit/integration/UI tests, active venv | 25/25 OK |
 | Реальный HTTP pair/session/stream/body-limit smoke | OK |
 | Qt worker/lifecycle offscreen smoke | OK |
 | Android pure Java tests и compile против API 36 | OK |

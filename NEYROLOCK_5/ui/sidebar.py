@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import QRect, QTimer, Qt, Signal
+from backends import ALL_BACKENDS, Backend
+from PySide6.QtCore import QRect, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -23,7 +24,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from backends import ALL_BACKENDS, Backend
 from ui.styles import COLORS
 
 
@@ -341,9 +341,14 @@ class Sidebar(QWidget):
             field_label.setToolTip(label)
             if kind == "file":
                 row = QHBoxLayout()
+                row.setContentsMargins(0, 0, 0, 0)
                 row.setSpacing(5)
                 edit = QLineEdit()
                 edit.setAccessibleName(compact_labels.get(key, label))
+                edit.setPlaceholderText("Выберите GGUF-файл")
+                edit.textChanged.connect(
+                    lambda text, e=edit: e.setToolTip(text or "Выберите GGUF-файл")
+                )
                 browse = QPushButton("Обзор")
                 browse.setObjectName("quietAction")
                 browse.setFixedWidth(66)
@@ -351,7 +356,7 @@ class Sidebar(QWidget):
                     f"Выбрать файл для поля «{compact_labels.get(key, label)}»."
                 )
                 browse.clicked.connect(lambda _=False, e=edit: self._pick_file(e))
-                row.addWidget(edit)
+                row.addWidget(edit, 1)
                 row.addWidget(browse)
                 container = QWidget()
                 container.setLayout(row)
@@ -377,6 +382,8 @@ class Sidebar(QWidget):
         )
         if path:
             edit.setText(path)
+            edit.setCursorPosition(len(path))
+            edit.deselect()
 
     def _on_temperature_slider(self, raw_value: int) -> None:
         value = raw_value / 100.0
@@ -403,7 +410,13 @@ class Sidebar(QWidget):
         button.setChecked(True)
         self._current_backend_id = backend_id
         self._rebuild_config_form(cls)
-        self._apply_btn.setEnabled(cls.is_available())
+        available = cls.is_available()
+        self._apply_btn.setEnabled(available)
+        self._apply_btn.setToolTip(
+            "Запросить список моделей"
+            if available
+            else "Установите зависимость этого backend'а"
+        )
 
     def get_config_values(self) -> dict[str, str]:
         return {key: edit.text().strip() for key, edit in self._config_inputs.items()}
@@ -412,7 +425,12 @@ class Sidebar(QWidget):
         for key, value in values.items():
             edit = self._config_inputs.get(key)
             if edit is not None:
-                edit.setText(str(value) if value is not None else "")
+                text = str(value) if value is not None else ""
+                edit.setText(text)
+                if key == "model_path":
+                    edit.setToolTip(text or "Выберите GGUF-файл")
+                    edit.setCursorPosition(len(text))
+                    edit.deselect()
 
     def set_models(
         self,

@@ -250,10 +250,16 @@ QPushButton#dangerAction {{
     color: {COLORS["danger"]};
 }}
 
-QPushButton#dangerAction:hover {{
+QPushButton#dangerAction:enabled:hover {{
     color: #ffffff;
     background: #472330;
     border-color: {COLORS["danger"]};
+}}
+
+QPushButton#dangerAction:disabled {{
+    color: {COLORS["text_muted"]};
+    background: #151c28;
+    border-color: {COLORS["separator_soft"]};
 }}
 
 QPushButton#backendItem {{
@@ -295,6 +301,13 @@ QLineEdit, QTextEdit, QPlainTextEdit, QComboBox, QDoubleSpinBox, QSpinBox {{
 QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QComboBox:focus,
 QDoubleSpinBox:focus, QSpinBox:focus {{
     border: 1px solid {COLORS["accent"]};
+}}
+
+QLineEdit:disabled, QTextEdit:disabled, QPlainTextEdit:disabled,
+QComboBox:disabled, QDoubleSpinBox:disabled, QSpinBox:disabled {{
+    color: {COLORS["text_muted"]};
+    background: #151c28;
+    border-color: {COLORS["separator_soft"]};
 }}
 
 QPlainTextEdit {{

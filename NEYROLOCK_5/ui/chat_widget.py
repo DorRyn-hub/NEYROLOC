@@ -1,26 +1,27 @@
 """Виджет чата: сообщения, поле ввода, потоковый вывод."""
 from __future__ import annotations
 
+import math
 from typing import Optional
 
-from PySide6.QtCore import QTimer, Qt, QUrl, Signal
+from backends.base import Message
+from PySide6.QtCore import Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QDesktopServices, QFont, QGuiApplication, QKeyEvent
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPlainTextEdit,
     QPushButton,
     QScrollArea,
-    QSpacerItem,
     QSizePolicy,
-    QMessageBox,
+    QSpacerItem,
+    QStackedLayout,
     QTextEdit,
     QVBoxLayout,
     QWidget,
 )
-
-from backends.base import Message
 
 # ----- разбиение markdown-текста на текстовые куски и блоки кода -----
 
@@ -389,6 +390,8 @@ class ChatInput(QPlainTextEdit):
     """Поле ввода: Enter — отправить, Shift+Enter — перенос строки."""
 
     submit = Signal()
+    _MIN_HEIGHT = 64
+    _MAX_HEIGHT = 120
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -397,7 +400,31 @@ class ChatInput(QPlainTextEdit):
         self.setAccessibleDescription(
             "Введите сообщение. Enter отправляет, Shift+Enter добавляет новую строку."
         )
-        self.setMaximumHeight(140)
+        # QPlainTextEdit has a tall default sizeHint, so a mere maximum height
+        # made the empty composer occupy 140 px on every launch. Grow only when
+        # the message actually needs more lines.
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setFixedHeight(self._MIN_HEIGHT)
+        self.document().documentLayout().documentSizeChanged.connect(
+            self._fit_height_to_content
+        )
+        self.textChanged.connect(self._fit_height_to_content)
+        QTimer.singleShot(0, self._fit_height_to_content)
+
+    def _fit_height_to_content(self, *_args) -> None:
+        # QPlainTextDocumentLayout reports its height as a visual-line count,
+        # not pixels. This also includes lines introduced by word wrapping.
+        visual_lines = max(
+            1,
+            math.ceil(self.document().documentLayout().documentSize().height()),
+        )
+        desired = max(
+            self._MIN_HEIGHT,
+            min(self._MAX_HEIGHT, visual_lines * self.fontMetrics().lineSpacing() + 30),
+        )
+        if self.height() != desired:
+            self.setFixedHeight(desired)
+            self.updateGeometry()
 
     def keyPressEvent(self, event: QKeyEvent) -> None:  # noqa: N802 (Qt API)
         if event.key() in (Qt.Key_Return, Qt.Key_Enter) and not (
@@ -468,20 +495,25 @@ class ChatWidget(QWidget):
         self._input.textChanged.connect(self._update_send_enabled)
         input_row.addWidget(self._input, 1)
 
-        buttons_col = QVBoxLayout()
-        buttons_col.setSpacing(6)
         self._send_btn = QPushButton("Отправить")
         self._send_btn.setObjectName("primary")
         self._send_btn.setToolTip("Отправить сообщение (Enter)")
+        self._send_btn.setMinimumWidth(112)
         self._send_btn.clicked.connect(self._on_submit)
         self._stop_btn = QPushButton("Стоп")
         self._stop_btn.setObjectName("dangerAction")
         self._stop_btn.setToolTip("Остановить генерацию")
+        self._stop_btn.setMinimumWidth(112)
         self._stop_btn.setEnabled(False)
         self._stop_btn.clicked.connect(self.stopRequested)
-        buttons_col.addWidget(self._send_btn)
-        buttons_col.addWidget(self._stop_btn)
-        input_row.addLayout(buttons_col)
+        # Send and Stop are mutually exclusive states of the same action slot.
+        # Showing a red disabled Stop next to Send looked active and doubled the
+        # minimum composer height.
+        self._action_stack = QStackedLayout()
+        self._action_stack.addWidget(self._send_btn)
+        self._action_stack.addWidget(self._stop_btn)
+        self._action_stack.setCurrentWidget(self._send_btn)
+        input_row.addLayout(self._action_stack)
 
         root.addWidget(input_frame)
 
@@ -595,7 +627,7 @@ class ChatWidget(QWidget):
         card.setProperty("isPlaceholder", True)
         card.setAccessibleName("Пустой чат")
         card.setMaximumWidth(520)
-        card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(24, 20, 24, 20)
         card_layout.setSpacing(7)
@@ -616,6 +648,11 @@ class ChatWidget(QWidget):
         shortcut.setAlignment(Qt.AlignCenter)
         shortcut.setWordWrap(True)
         card_layout.addWidget(shortcut)
+
+        # QVBoxLayout's minimumSizeHint ignores the extra lines introduced by
+        # word wrapping. Without an explicit minimum the fixed-height result is
+        # 104 px while the real hint is 130 px, clipping all three labels.
+        card.setMinimumHeight(card.sizeHint().height())
 
         insert_at = self._messages_layout.count() - 1
         self._placeholder_spacer = QSpacerItem(
@@ -665,6 +702,7 @@ class ChatWidget(QWidget):
     def set_busy(self, busy: bool) -> None:
         self._busy = busy
         self._stop_btn.setEnabled(busy)
+        self._action_stack.setCurrentWidget(self._stop_btn if busy else self._send_btn)
         self._input.setReadOnly(busy)
         self._update_send_enabled()
         self._refresh_actions()

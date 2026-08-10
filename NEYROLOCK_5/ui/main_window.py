@@ -5,7 +5,21 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from PySide6.QtCore import QThread, QTimer, Qt, Signal
+from backends import ALL_BACKENDS, Backend
+from backends.base import BackendConfig, Message
+from core.config import Config
+from core.history import HISTORY_DIR, ChatSession, load_session
+from core.json_store import atomic_write_json
+from core.model_library import ModelLibrary
+from core.remote_server import (
+    DEFAULT_PORT,
+    RemoteBridge,
+    RemoteServer,
+    local_ip,
+    tailscale_ip,
+)
+from core.tunnel import Tunnel
+from PySide6.QtCore import Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -18,20 +32,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from backends import ALL_BACKENDS, Backend
-from backends.base import BackendConfig, Message
-from core.config import Config
-from core.history import HISTORY_DIR, ChatSession, load_session
-from core.json_store import atomic_write_json
-from core.model_library import ModelLibrary
-from core.tunnel import Tunnel
-from core.remote_server import (
-    DEFAULT_PORT,
-    RemoteBridge,
-    RemoteServer,
-    local_ip,
-    tailscale_ip,
-)
 from ui.chat_widget import ChatWidget
 from ui.model_library_dialog import ModelLibraryDialog
 from ui.remote_dialog import RemoteAccessDialog
@@ -245,14 +245,17 @@ class MainWindow(QMainWindow):
         # The old fixed 360 px width made the splitter decorative and left the
         # chat unusably narrow in compact windows.  Keep sensible bounds while
         # allowing the user to tune the balance.
-        sidebar_scroll.setMinimumWidth(280)
+        # Leave room for the vertical scrollbar as well as Sidebar's own
+        # 280 px minimum; otherwise compact windows silently crop its right
+        # edge while horizontal scrolling is disabled.
+        sidebar_scroll.setMinimumWidth(292)
         sidebar_scroll.setMaximumWidth(420)
         self._sidebar_scroll = sidebar_scroll
         self.chat = ChatWidget()
         splitter.addWidget(sidebar_scroll)
         splitter.addWidget(self.chat)
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 3)
         splitter.setChildrenCollapsible(False)
         splitter.setSizes([320, 960])
         layout.addWidget(splitter)
@@ -291,8 +294,11 @@ class MainWindow(QMainWindow):
         if restored_backend:
             self.sidebar.set_active_backend(restored_backend)
             self._load_config_into_form(restored_backend)
-
-        self._set_status("Готов. Выберите backend.")
+            cls = self._backend_class(restored_backend)
+            if cls is not None:
+                self._update_backend_selection_ui(cls)
+        else:
+            self._set_status("Готов. Выберите backend.")
 
     # ----- helpers -----
 
@@ -306,6 +312,18 @@ class MainWindow(QMainWindow):
         values = self.config.backend_config(backend_id)
         self.sidebar.set_config_values(values)
 
+    def _update_backend_selection_ui(self, cls: type[Backend]) -> None:
+        if not cls.is_available():
+            self._set_status(
+                f"{cls.display_name}: библиотека не установлена. См. requirements.txt."
+            )
+            self.sidebar.set_apply_enabled(False)
+            return
+        self._set_status(
+            f"Выбран {cls.display_name}. Заполните параметры и нажмите «Подключить»."
+        )
+        self.sidebar.set_apply_enabled(True)
+
     # ----- сигналы sidebar -----
 
     def _on_backend_activated(self, backend_id: str) -> None:
@@ -317,14 +335,7 @@ class MainWindow(QMainWindow):
         cls = self._backend_class(backend_id)
         if cls is None:
             return
-        if not cls.is_available():
-            self._set_status(
-                f"{cls.display_name}: библиотека не установлена. См. requirements.txt."
-            )
-            self.sidebar.set_apply_enabled(False)
-        else:
-            self._set_status(f"Выбран {cls.display_name}. Заполните параметры и нажмите «Подключить».")
-            self.sidebar.set_apply_enabled(True)
+        self._update_backend_selection_ui(cls)
 
     def _on_apply_clicked(self) -> None:
         backend_id = self.sidebar.current_backend_id
