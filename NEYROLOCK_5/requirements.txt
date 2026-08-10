@@ -1,0 +1,27 @@
+# NEYROLOCK v5 — зависимости
+# Python 3.10+
+# Быстрые тесты используют stdlib unittest и не требуют test-зависимостей.
+#
+# Backend'ы: один локальный (Local GGUF, offline) + два онлайн
+# (backends/online/ — OpenAI, Groq). LM Studio/Ollama/HuggingFace GGUF убраны.
+
+# --- Обязательные ---
+PySide6>=6.6.0          # GUI
+requests>=2.31.0        # HTTP
+Pygments>=2.17          # Подсветка синтаксиса в блоках кода чата
+segno>=1.6              # QR-код в диалоге «Удалённый доступ с телефона»
+
+# --- Онлайн backend'ы (backends/online/) ---
+
+# OpenAI / Groq (облако, OpenAI-совместимый API)
+openai>=1.0.0
+
+# --- Local GGUF backend ---
+
+# Нужен для скачивания моделей прямо из приложения (ModelLibrary/диалог библиотеки)
+huggingface-hub>=0.20.0
+
+# Инференс GGUF. Mac Apple Silicon: ставить отдельно с ускорением Metal —
+#   CMAKE_ARGS="-DLLAMA_METAL=on" pip install "llama-cpp-python>=0.2.0"
+# Прочие платформы можно раскомментировать строку ниже:
+# llama-cpp-python>=0.2.0

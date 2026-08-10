@@ -1,0 +1,48 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="NEYROLOC">
+  <defs>
+    <linearGradient id="nl" x1="120" y1="90" x2="420" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8C49FE"/>
+      <stop offset="0.48" stop-color="#3667FF"/>
+      <stop offset="0.78" stop-color="#1098FF"/>
+      <stop offset="1" stop-color="#46CDF9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- neural mesh (left half of the pin): edges -->
+  <g stroke="url(#nl)" stroke-width="6" stroke-linecap="round" opacity="0.9">
+    <line x1="262" y1="96"  x2="176" y2="150"/>
+    <line x1="176" y1="150" x2="138" y2="232"/>
+    <line x1="138" y1="232" x2="168" y2="312"/>
+    <line x1="168" y1="312" x2="236" y2="392"/>
+    <line x1="236" y1="392" x2="276" y2="440"/>
+    <line x1="262" y1="96"  x2="232" y2="214"/>
+    <line x1="176" y1="150" x2="232" y2="214"/>
+    <line x1="138" y1="232" x2="232" y2="214"/>
+    <line x1="232" y1="214" x2="210" y2="300"/>
+    <line x1="138" y1="232" x2="210" y2="300"/>
+    <line x1="168" y1="312" x2="210" y2="300"/>
+    <line x1="236" y1="392" x2="210" y2="300"/>
+  </g>
+
+  <!-- pin: bold right sweep -->
+  <path d="M262 96 C356 96 404 156 404 220 C404 316 330 388 276 440"
+        stroke="url(#nl)" stroke-width="36" stroke-linecap="round" fill="none"/>
+
+  <!-- down arrow at the tip -->
+  <path d="M248 452 L276 487 L304 452"
+        stroke="url(#nl)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- location dot (ring) -->
+  <circle cx="300" cy="212" r="34" stroke="url(#nl)" stroke-width="20" fill="none"/>
+
+  <!-- neural mesh nodes -->
+  <g fill="url(#nl)">
+    <circle cx="262" cy="96"  r="13"/>
+    <circle cx="176" cy="150" r="13"/>
+    <circle cx="138" cy="232" r="13"/>
+    <circle cx="168" cy="312" r="13"/>
+    <circle cx="236" cy="392" r="12"/>
+    <circle cx="232" cy="214" r="11"/>
+    <circle cx="210" cy="300" r="11"/>
+  </g>
+</svg>

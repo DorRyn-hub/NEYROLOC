@@ -1,2 +1,15 @@
-# NEYROLOC
-NEYROLOC - is project that will help you to start using local Ai's and It one of the best
+# NEYROLOC NEW
+
+Приватный мультиплатформенный AI-клиент: PySide6 desktop, локальные GGUF-модели,
+OpenAI-совместимые API, защищённый доступ с телефона, Android/iOS WebView и
+опциональный личный tunnel.
+
+Основная документация: [README_NEYROLOC_NEW.md](README_NEYROLOC_NEW.md).
+
+Результаты полного технического и security-аудита:
+[PROJECT_AUDIT.md](PROJECT_AUDIT.md).
+
+Активный desktop-код расположен в `NEYROLOCK_5`. Локальный каталог
+`NEYROLOC_2` с предыдущим поколением сохранён на машине владельца, но исключён
+из публикуемого дерева; iOS-клиент подключён приватным submodule. Проект не
+предназначен для публичного распространения исходного кода.
