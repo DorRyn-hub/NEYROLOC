@@ -172,12 +172,34 @@ class UiLayoutTests(unittest.TestCase):
 
         model_path = self.window.sidebar._config_inputs["model_path"]
         self.assertEqual(model_path.toolTip(), model_path.text())
+        expected_apply_tooltip = (
+            "Запросить список моделей"
+            if self.window.sidebar._apply_btn.isEnabled()
+            else "Установите зависимость этого backend'а"
+        )
         self.assertEqual(
             self.window.sidebar._apply_btn.toolTip(),
-            "Запросить список моделей",
+            expected_apply_tooltip,
         )
         self.assertNotIn("Выберите backend", self.window.statusBar().currentMessage())
         self.assertIn("Local GGUF", self.window.statusBar().currentMessage())
+
+        local_backend = next(
+            cls for cls in main_window_module.ALL_BACKENDS if cls.id == "local_gguf"
+        )
+        for available, tooltip in (
+            (True, "Запросить список моделей"),
+            (False, "Установите зависимость этого backend'а"),
+        ):
+            with self.subTest(backend_available=available):
+                with mock.patch.object(
+                    local_backend,
+                    "is_available",
+                    return_value=available,
+                ):
+                    self.window.sidebar.set_active_backend("local_gguf")
+                self.assertEqual(self.window.sidebar._apply_btn.isEnabled(), available)
+                self.assertEqual(self.window.sidebar._apply_btn.toolTip(), tooltip)
 
 
 if __name__ == "__main__":
