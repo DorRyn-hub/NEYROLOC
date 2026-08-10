@@ -1,0 +1,8 @@
+-r ../NEYROLOCK_5/requirements.txt
+
+# Release packaging uses a stable Python because Python 3.14 support in the
+# pinned Nuitka version is experimental and breaks decorated third-party code.
+# build_standalone_macos.sh also sets macOS deployment target 15.0 before
+# compiling llama.cpp so the host OS version is not baked into its dylibs.
+llama-cpp-python==0.3.33
+Nuitka==4.0

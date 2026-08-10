@@ -1,0 +1,4 @@
+[submodule "NEYROLOC"]
+	path = NEYROLOC
+	url = https://github.com/DorRyn-hub/NEYROLOC-iOS.git
+	branch = main

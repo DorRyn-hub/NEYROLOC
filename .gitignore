@@ -1,0 +1,54 @@
+# Python caches and local environments
+**/__pycache__/
+*.py[cod]
+**/.venv/
+**/venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+
+# OS and editor metadata
+.DS_Store
+.idea/
+.vscode/
+
+# Local runtime data
+chat.json
+*.log
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+*.mobileprovision
+*.provisionprofile
+/CLAUDE.local.md
+
+# Generated package output
+**/build/
+**/dist/
+/deployment/
+/pysidedeploy.spec
+*.idsig
+*.app/
+*.dmg
+*.exe
+*.msi
+*.pkg
+**/installers/output/
+**/.pdm-build/
+packaging/android/debug.keystore
+/packaging/android/res/mipmap-
+
+# Local pre-v5 archive is intentionally kept on this Mac, but excluded from the
+# clean product repository together with its copied SDKs and historical builds.
+/NEYROLOC_2/
+
+# Separate nested iOS repository
+/NEYROLOC/
