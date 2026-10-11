@@ -91,8 +91,10 @@ def check(tree=None):
         report = Path(directory) / 'report.json'
         ignore = Path(directory) / 'empty-ignore'
         ignore.write_text('')
+        local_config = Path(__file__).resolve().with_name('gitleaks.toml')
+        config = local_config if local_config.exists() else Path(__file__).resolve().parents[1] / '.gitleaks.toml'
         result = subprocess.run([scanner, 'dir', str(root), '--redact=100', '--no-banner',
-                                 '--config', str(Path(__file__).resolve().parents[1] / '.gitleaks.toml'),
+                                 '--config', str(config),
                                  '--ignore-gitleaks-allow', '--gitleaks-ignore-path', str(ignore),
                                  '--report-format', 'json', '--report-path', str(report)],
                                 capture_output=True)

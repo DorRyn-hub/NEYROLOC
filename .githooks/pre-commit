@@ -1,3 +1,4 @@
 #!/bin/sh
 set -eu
-python3 scripts/check_repository.py --index
+guards="$(git rev-parse --git-path project-guards)"
+python3 "$guards/check_repository.py" --index
