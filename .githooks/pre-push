@@ -1,3 +1,4 @@
 #!/bin/sh
 set -eu
-python3 scripts/pre_push.py "$@"
+guards="$(git rev-parse --git-path project-guards)"
+python3 "$guards/pre_push.py" "$@"
