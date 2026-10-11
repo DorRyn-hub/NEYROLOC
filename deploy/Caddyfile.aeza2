@@ -1,0 +1,43 @@
+{
+	on_demand_tls {
+		ask http://127.0.0.1:9001/api/check
+	}
+}
+
+# AEZA-2: 443 занят Xray Reality. NEYROLOC намеренно живёт на 7443.
+neyroloc.static-assets-io.website:7443 {
+	encode zstd gzip
+	tls {
+		issuer acme {
+			disable_tlsalpn_challenge
+		}
+	}
+
+	# FRP control over ordinary WSS survives full-tunnel VPNs/proxies that
+	# repeatedly reset the dedicated raw TCP :7000 path.
+	@frp_control path /~!frp*
+	handle @frp_control {
+		reverse_proxy 127.0.0.1:7000
+	}
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:9001
+	}
+	handle {
+		root * /var/www/neyroloc
+		try_files {path} {path}/ /index.html
+		file_server
+	}
+}
+
+# Tenant выбирается по SNI/Host; сертификат выпускается только после ответа
+# broker /api/check. FRPS HTTP-vhost наружу не слушает.
+https://:7443 {
+	tls {
+		on_demand
+		issuer acme {
+			disable_tlsalpn_challenge
+		}
+	}
+	reverse_proxy 127.0.0.1:8080
+}

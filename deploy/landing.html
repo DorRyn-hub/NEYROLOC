@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEYROLOC — своя нейросеть с телефона</title>
+<meta name="description" content="Модель работает на вашем компьютере. Телефон подключается к ней из любой сети — без VPN и настройки роутера.">
+<meta name="theme-color" content="#0d111a">
+<link rel="icon" type="image/svg+xml" href="/mark.svg">
+<style>
+  :root{
+    --bg:#0b0f18; --surface:#141b27; --line:#243044; --text:#eef3fa; --muted:#93a2b8;
+    --brand:linear-gradient(135deg,#8C49FE 0%,#3667FF 50%,#1098FF 100%);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);
+       font:16px/1.6 -apple-system,'Segoe UI',Roboto,sans-serif;
+       -webkit-font-smoothing:antialiased}
+  .wrap{max-width:960px;margin:0 auto;padding:0 20px}
+  a{color:#8ab4ff}
+
+  header{padding:22px 0}
+  .brand{display:flex;align-items:center;gap:11px}
+  .brand img{width:34px;height:34px}
+  .brand b{font-size:18px;letter-spacing:.5px}
+
+  .hero{padding:64px 0 56px;text-align:center}
+  .hero img.mark{width:104px;height:104px;margin-bottom:20px}
+  h1{font-size:clamp(30px,6vw,46px);line-height:1.15;letter-spacing:-.5px;margin-bottom:16px}
+  .grad{background:var(--brand);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lead{font-size:clamp(16px,2.4vw,19px);color:var(--muted);max-width:620px;margin:0 auto 30px}
+  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn{display:inline-block;padding:13px 24px;border-radius:13px;font-weight:700;
+       text-decoration:none;font-size:15px}
+  .btn.primary{background:var(--brand);color:#fff}
+  .btn.ghost{border:1px solid var(--line);color:var(--text);background:var(--surface)}
+  .btn.soon{opacity:.45;pointer-events:none}
+
+  section{padding:44px 0;border-top:1px solid var(--line)}
+  h2{font-size:22px;margin-bottom:22px}
+  .grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:15px;padding:20px}
+  .card h3{font-size:16px;margin-bottom:7px}
+  .card p{color:var(--muted);font-size:14.5px}
+  .num{width:26px;height:26px;border-radius:8px;background:var(--brand);color:#fff;
+       display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;
+       margin-bottom:11px}
+
+  footer{padding:30px 0 44px;border-top:1px solid var(--line);color:var(--muted);font-size:13.5px;
+         display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .credit{display:flex;align-items:center;gap:8px;opacity:.9}
+  .credit img{height:15px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand"><img src="/mark.svg" alt=""><b>NEYROLOC</b></div>
+  </header>
+
+  <div class="hero">
+    <img class="mark" src="/mark.svg" alt="NEYROLOC">
+    <h1>Своя нейросеть —<br><span class="grad">с телефона, из любой сети</span></h1>
+    <p class="lead">
+      Модель работает на вашем компьютере и никуда не уезжает. Телефон подключается
+      к ней напрямую — без VPN, без белого IP и без настройки роутера.
+    </p>
+    <div class="cta">
+      <a class="btn primary soon">Для компьютера — скоро</a>
+      <a class="btn ghost" href="/download/android">Android (.apk)</a>
+      <a class="btn ghost soon">iPhone — скоро</a>
+    </div>
+    <p style="color:var(--muted);font-size:13.5px;margin-top:16px">
+      Приложение для компьютера — то самое, где работает модель. Сборка готовится.
+    </p>
+  </div>
+
+  <section>
+    <h2>Как это работает</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="num">1</div>
+        <h3>Ставите приложение на компьютер</h3>
+        <p>Выбираете модель — локальную (GGUF, полностью офлайн) или облачную.</p>
+      </div>
+      <div class="card">
+        <div class="num">2</div>
+        <h3>Включаете доступ с телефона</h3>
+        <p>Приложение само поднимает защищённый туннель и выдаёт вам личный адрес.</p>
+      </div>
+      <div class="card">
+        <div class="num">3</div>
+        <h3>Открываете адрес на телефоне</h3>
+        <p>Вводите код сопряжения — и переписываетесь со своей моделью откуда угодно.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Почему так</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>Данные остаются у вас</h3>
+        <p>Переписка идёт к вашему компьютеру. Мы не храним ни диалоги, ни модели.</p>
+      </div>
+      <div class="card">
+        <h3>Ничего не настраивать</h3>
+        <p>Туннель исходящий: порты пробрасывать не нужно, серый IP не помеха.</p>
+      </div>
+      <div class="card">
+        <h3>Личный адрес и код</h3>
+        <p>У каждого свой поддомен под HTTPS, вход — по коду сопряжения с экрана.</p>
+      </div>
+      <div class="card">
+        <h3>Телефон как полноценный клиент</h3>
+        <p>Несколько чатов, markdown и код, системный промпт, светлая и тёмная темы.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div>NEYROLOC — локальная модель, доступная с телефона.</div>
+    <div class="credit">created by <img src="/rdev.svg" alt="RDEV"></div>
+  </footer>
+
+</div>
+</body>
+</html>

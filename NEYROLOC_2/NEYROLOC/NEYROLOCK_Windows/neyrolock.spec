@@ -1,0 +1,95 @@
+# -*- mode: python ; coding: utf-8 -*-
+"""
+PyInstaller spec file for NEYROLOCK
+Создаёт standalone .exe для Windows
+"""
+
+block_cipher = None
+
+a = Analysis(
+    ['neyrolock.py'],
+    pathex=[],
+    binaries=[],
+    datas=[],
+    hiddenimports=[
+        'rich',
+        'rich.console',
+        'rich.panel',
+        'rich.table',
+        'rich.prompt',
+        'rich.markdown',
+        'rich.syntax',
+        'rich.text',
+        'rich.style',
+        'rich.color',
+        'rich.theme',
+        'rich._palettes',
+        'rich._null_file',
+        'openai',
+        'openai._client',
+        'openai._streaming',
+        'openai.resources',
+        'httpx',
+        'httpcore',
+        'anyio',
+        'anyio._backends',
+        'anyio._backends._asyncio',
+        'sniffio',
+        'h11',
+        'certifi',
+        'idna',
+        'charset_normalizer',
+        'pygments',
+        'pygments.styles',
+        'pygments.lexers',
+        'markdown_it',
+    ],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[
+        'tkinter',
+        'matplotlib',
+        'numpy',
+        'pandas',
+        'scipy',
+        'PIL',
+        'cv2',
+        'tensorflow',
+        'torch',
+        'pytest',
+        'sphinx',
+        'IPython',
+        'notebook',
+        'jupyter',
+    ],
+    win_no_prefer_redirects=False,
+    win_private_assemblies=False,
+    cipher=block_cipher,
+    noarchive=False,
+)
+
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    [],
+    name='NEYROLOCK',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    runtime_tmpdir=None,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    icon=None,  # Можно добавить: icon='icon.ico'
+)

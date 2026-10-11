@@ -1,0 +1,18 @@
+# 🤖 AI CLI - Универсальные зависимости
+
+# Обязательные зависимости
+rich>=13.0.0          # Красивый вывод в терминале
+huggingface-hub>=0.20.0  # Скачивание моделей с HuggingFace
+
+# Опциональные зависимости (зависят от выбранного backend)
+
+# Для LM Studio
+lmstudio>=1.5.0
+
+# Для локальных GGUF моделей
+# Mac M1/M2/M3: CMAKE_ARGS="-DLLAMA_METAL=on" pip install llama-cpp-python
+# Другие системы: pip install llama-cpp-python
+llama-cpp-python>=0.2.0
+
+# Для облачных API (Groq, OpenAI) и Ollama
+openai>=1.0.0

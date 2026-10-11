@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- HTTP разрешён только внутри WKWebView для локального сервера; URLSession
+         и остальные сетевые API продолжают работать под обычными правилами ATS. -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoadsInWebContent</key>
+        <true/>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+    </dict>
+    <key>UIAppFonts</key>
+    <array>
+        <string>Onest-Regular.ttf</string>
+        <string>Onest-Bold.ttf</string>
+    </array>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>NEYROLOC подключается к вашему компьютеру в локальной сети, чтобы управлять нейросетями.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Камера нужна, чтобы считать QR-код с экрана компьютера и подключиться без ручного ввода адреса.</string>
+</dict>
+</plist>

@@ -1,0 +1,15 @@
+# Зависимости для LM Studio CLI
+# Python 3.10+
+
+# Основная библиотека для работы с LM Studio
+lmstudio>=1.5.0
+
+# Библиотека для красивого вывода в терминале
+rich>=13.0.0
+
+# Дополнительные зависимости (уже установлены с lmstudio)
+# anyio
+# httpx
+# httpx-ws
+# msgspec
+# typing-extensions

@@ -1,0 +1,27 @@
+name: Проверить сохранение исходников
+
+on:
+  push:
+    branches: [main, version-control]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+      - name: Установить проверенный сканер
+        run: python3 scripts/install_gitleaks.py
+      - name: Проверить опубликованный снимок
+        run: python3 scripts/check_repository.py --tree HEAD
+      - name: Проверить защиту и восстановление
+        run: |
+          python3 -m unittest discover -s tests -p test_repository_guards.py -v
+          python3 -m unittest discover -s tests -p test_restore_version.py -v

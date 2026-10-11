@@ -1,0 +1,28 @@
+[Unit]
+Description=NEYROLOC broker (subdomain provisioning + tunnel auth)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=neyroloc
+Group=neyroloc
+Environment=NEYROLOC_BASE_DOMAIN=neyroloc.static-assets-io.website
+Environment=NEYROLOC_REGISTRY=/var/lib/neyroloc/registry.json
+Environment=NEYROLOC_FRPS_TOKEN_FILE=/etc/frp/token
+Environment=NEYROLOC_FRPS_HOST=neyroloc.static-assets-io.website
+Environment=NEYROLOC_FRPS_PORT=7443
+Environment=NEYROLOC_FRPS_PROTOCOL=wss
+Environment=NEYROLOC_PUBLIC_HTTPS_PORT=7443
+ExecStart=/usr/bin/python3 /opt/neyroloc/broker.py
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/neyroloc
+RestrictAddressFamilies=AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

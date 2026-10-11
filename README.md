@@ -1,2 +1,21 @@
 # NEYROLOC
-NEYROLOC - is project that will help you to start using local Ai's and It one of the best
+
+Desktop-клиент для работы с локальными GGUF-моделями и online-backends, с мобильным
+веб-интерфейсом, iOS-обёрткой и Android-обёрткой.
+
+- `main.py`, `start.py`, `NEYROLOCK_5/` — активное desktop-приложение (Python/PySide6).
+- `NEYROLOC/` — исходники и тесты iOS.
+- `packaging/android/` — Android-исходники и сборочные скрипты.
+- `NEYROLOC_2/` — архивный CLI и SDK; окружения и бинарные сборки не публикуются.
+- `tests/` — тесты текущей рабочей папки.
+- `deploy/`, `remote/`, `packaging/` — исходники инфраструктуры и сборки; их наличие
+  не означает автоматического запуска или развёртывания.
+
+Установите зависимости из `NEYROLOCK_5/requirements.txt` в локальном Python-окружении,
+затем запускайте `python main.py`. Модели и личные настройки хранятся отдельно.
+
+Текущие исходники находятся в **main**; **version-control** — постоянная ветка
+инструментов восстановления и default branch GitHub.
+
+Инструкции сохранения, истории, скачивания и восстановления: [VERSIONING.md](VERSIONING.md).
+Правила завершения изменений и отправки: [AGENTS.md](AGENTS.md).

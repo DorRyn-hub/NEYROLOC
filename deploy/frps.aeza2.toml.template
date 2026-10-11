@@ -1,0 +1,14 @@
+bindAddr = "0.0.0.0"
+bindPort = 7000
+proxyBindAddr = "127.0.0.1"
+vhostHTTPPort = 8080
+subDomainHost = "neyroloc.static-assets-io.website"
+
+auth.method = "token"
+auth.token = "__FRPS_TOKEN__"
+
+[[httpPlugins]]
+name = "neyroloc-broker"
+addr = "127.0.0.1:9001"
+path = "/handler"
+ops = ["Login", "NewProxy"]

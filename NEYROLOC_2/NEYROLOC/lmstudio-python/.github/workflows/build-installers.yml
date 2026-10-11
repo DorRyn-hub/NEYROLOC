@@ -1,0 +1,213 @@
+name: Build Installers for All Platforms
+
+on:
+  push:
+    tags:
+      - 'v*'  # Запускается при создании тега v1.0.0, v2.0.0 и т.д.
+  workflow_dispatch:  # Можно запустить вручную из GitHub
+
+jobs:
+  build-windows:
+    name: Build Windows Installer
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller pillow
+
+      - name: Create icons
+        run: python create_icons.py
+
+      - name: Build with PyInstaller
+        run: |
+          cd installers/pyinstaller
+          pyinstaller neyrolock_gui.spec --clean --noconfirm
+
+      - name: Download Inno Setup
+        run: |
+          choco install innosetup -y
+
+      - name: Build Windows Installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installers\windows\neyrolock_setup.iss
+
+      - name: Upload Windows Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: installers/output/NEYROLOCK-3.0.0-Windows-Setup.exe
+          retention-days: 30
+
+  build-macos:
+    name: Build macOS Installer
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install pyinstaller pillow
+          brew install create-dmg || true
+
+      - name: Create icons
+        run: python3 create_icons.py
+
+      - name: Build macOS Installer
+        run: bash installers/macos/build_macos.sh
+
+      - name: Upload macOS DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: installers/output/NEYROLOCK-3.0.0-macOS.dmg
+          retention-days: 30
+
+      - name: Upload macOS App
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: installers/output/NEYROLOCK.app
+          retention-days: 30
+
+  build-linux:
+    name: Build Linux Installers
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install pyinstaller pillow
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev rpm
+
+      - name: Create icons
+        run: python3 create_icons.py
+
+      - name: Build Linux Installers
+        run: bash installers/linux/build_linux.sh
+
+      - name: Upload Debian Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-deb
+          path: installers/output/neyrolock_3.0.0_amd64.deb
+          retention-days: 30
+
+      - name: Upload RPM Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-rpm
+          path: installers/output/neyrolock-3.0.0-1.x86_64.rpm
+          retention-days: 30
+
+      - name: Upload Universal Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-universal
+          path: installers/output/NEYROLOCK-3.0.0-Linux-Installer.sh
+          retention-days: 30
+
+  create-release:
+    name: Create Release with All Installers
+    needs: [build-windows, build-macos, build-linux]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: installers
+
+      - name: Display structure
+        run: ls -R installers
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            installers/windows-installer/*.exe
+            installers/macos-dmg/*.dmg
+            installers/linux-deb/*.deb
+            installers/linux-rpm/*.rpm
+            installers/linux-universal/*.sh
+          body: |
+            ## 🎉 NEYROLOCK v${{ github.ref_name }}
+
+            ### 📥 Установщики для всех платформ
+
+            **Windows:**
+            - `NEYROLOCK-3.0.0-Windows-Setup.exe` - Установщик с прогресс-баром
+
+            **macOS:**
+            - `NEYROLOCK-3.0.0-macOS.dmg` - DMG установщик
+
+            **Linux:**
+            - `neyrolock_3.0.0_amd64.deb` - Debian/Ubuntu
+            - `neyrolock-3.0.0-1.x86_64.rpm` - Fedora/RedHat
+            - `NEYROLOCK-3.0.0-Linux-Installer.sh` - Универсальный
+
+            ### 📝 Установка
+
+            **Windows:**
+            ```
+            Двойной клик на .exe файл
+            ```
+
+            **macOS:**
+            ```
+            Открыть DMG → Перетащить в Applications
+            ```
+
+            **Linux (Debian/Ubuntu):**
+            ```bash
+            sudo dpkg -i neyrolock_3.0.0_amd64.deb
+            ```
+
+            **Linux (Fedora/RedHat):**
+            ```bash
+            sudo rpm -i neyrolock-3.0.0-1.x86_64.rpm
+            ```
+
+            **Linux (Универсальный):**
+            ```bash
+            sudo bash NEYROLOCK-3.0.0-Linux-Installer.sh
+            ```
+
+            ### ✨ Особенности
+
+            - Детальный прогресс установки
+            - Исходный код полностью скрыт
+            - Автоматическая интеграция с системой
+            - Готово к использованию сразу после установки
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

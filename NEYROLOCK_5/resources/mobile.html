@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<!-- maximum-scale=1: iOS иначе сам зумит страницу при фокусе на поле ввода,
+     и после этого вёрстка «съезжает» вбок. Поля ввода ниже — 16px по той же причине. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d111a">
+<title>NEYROLOC</title>
+<!-- PWA: «На экран Домой» превращает страницу в приложение (полный экран, иконка) -->
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<link rel="icon" type="image/svg+xml" href="/mark.svg">
+<link rel="icon" type="image/png" href="/favicon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NEYROLOC">
+<meta name="mobile-web-app-capable" content="yes">
+<style>
+  :root {
+    --window:#0d111a; --surface:#171e2b; --surface-alt:#141b27; --control:#1b2433;
+    --separator:#2b3749; --text:#eef3fa; --text-2:#a6b3c5; --muted:#718097;
+    --accent:#3d76ff; --accent-soft:#263657; --user:#3a5bd6; --assistant:#171f2d;
+    --danger:#ff7184; --ok:#3ddc97; --code-bg:#10151f;
+    --brand:linear-gradient(135deg,#8C49FE 0%,#3667FF 50%,#1098FF 100%);
+  }
+  :root[data-theme="light"] {
+    --window:#f5f7fb; --surface:#ffffff; --surface-alt:#ffffff; --control:#eef1f7;
+    --separator:#dde3ed; --text:#111823; --text-2:#48566b; --muted:#7a8798;
+    --accent:#2b5fe3; --accent-soft:#dfe8ff; --user:#3667ff; --assistant:#ffffff;
+    --danger:#d4344a; --ok:#12a06a; --code-bg:#f1f4f9;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; width:100%; max-width:100%; overflow-x:hidden; }
+  body {
+    background:var(--window); color:var(--text);
+    font:15px/1.45 -apple-system,'Segoe UI',Roboto,sans-serif;
+    display:flex; flex-direction:column;
+    padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+    overscroll-behavior-y:none;
+  }
+  button, select, textarea, input { font:inherit; color:inherit; }
+  button { border:none; background:none; cursor:pointer; }
+
+  /* ---------- шапка ---------- */
+  header {
+    display:flex; align-items:center; gap:9px;
+    padding:10px 12px; background:var(--surface-alt);
+    border-bottom:1px solid var(--separator); flex-shrink:0;
+    width:100%; max-width:100%;
+  }
+  .icon-btn {
+    width:34px; height:34px; flex-shrink:0; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    color:var(--text-2); font-size:17px;
+  }
+  .icon-btn:active { background:var(--control); }
+  .mark { width:28px; height:28px; flex-shrink:0; display:block; }
+  .head-info { min-width:0; flex:1; }
+  .head-title {
+    font-weight:700; font-size:14px; line-height:1.25;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .head-sub {
+    font-size:11px; color:var(--muted); white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:5px;
+  }
+  .dot { width:6px; height:6px; border-radius:50%; background:var(--muted); flex-shrink:0; }
+  .dot.on { background:var(--ok); } .dot.off { background:var(--danger); }
+  select#modelSelect {
+    background:var(--control); color:var(--text); border:1px solid var(--separator);
+    border-radius:9px; padding:6px 6px; font-size:16px;  /* 16px — иначе iOS зумит */
+    max-width:118px; width:118px; flex-shrink:0; min-width:0;
+  }
+
+  /* ---------- чат ---------- */
+  #chat { flex:1; overflow-y:auto; overflow-x:hidden; padding:14px 12px 10px; -webkit-overflow-scrolling:touch; }
+  .row { display:flex; flex-direction:column; margin-bottom:12px; max-width:100%; }
+  .row.user { align-items:flex-end; }
+  .row.assistant { align-items:flex-start; }
+  .msg {
+    max-width:88%; border-radius:15px; padding:9px 12px;
+    word-break:break-word; overflow-wrap:anywhere; font-size:14.5px;
+  }
+  .row.user .msg { background:var(--user); color:#fff; border-bottom-right-radius:5px; }
+  .row.assistant .msg {
+    background:var(--assistant); border:1px solid var(--separator);
+    border-bottom-left-radius:5px;
+  }
+  .msg p { margin:0 0 7px; } .msg p:last-child { margin-bottom:0; }
+  .msg h1,.msg h2,.msg h3 { font-size:15.5px; margin:8px 0 5px; font-weight:700; }
+  .msg h1:first-child,.msg h2:first-child,.msg h3:first-child { margin-top:0; }
+  .msg ul,.msg ol { margin:0 0 7px; padding-left:20px; }
+  .msg li { margin:2px 0; }
+  .msg blockquote {
+    border-left:3px solid var(--accent); padding-left:9px; margin:0 0 7px;
+    color:var(--text-2);
+  }
+  .msg hr { border:none; border-top:1px solid var(--separator); margin:9px 0; }
+  .msg a { color:#8ab4ff; }
+  .row.user .msg a { color:#dce7ff; }
+  .msg code.inline {
+    background:rgba(127,127,127,.22); border-radius:5px; padding:1px 5px;
+    font:12.5px/1.4 ui-monospace,'SF Mono',Menlo,monospace;
+  }
+  .codewrap { margin:7px 0; border:1px solid var(--separator); border-radius:9px; overflow:hidden; }
+  .codehead {
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:5px 9px; background:rgba(127,127,127,.12);
+    font-size:11px; color:var(--muted); text-transform:lowercase;
+  }
+  .codehead button { font-size:11px; color:var(--text-2); padding:2px 6px; border-radius:5px; }
+  .codewrap pre {
+    margin:0; padding:9px 10px; background:var(--code-bg); overflow-x:auto;
+    font:12.5px/1.55 ui-monospace,'SF Mono',Menlo,monospace; white-space:pre;
+  }
+  .acts { display:flex; gap:2px; margin:3px 4px 0; opacity:.72; }
+  .acts button {
+    font-size:11px; color:var(--muted); padding:3px 7px; border-radius:7px;
+  }
+  .acts button:active { background:var(--control); color:var(--text); }
+  .meta { font-size:10.5px; color:var(--muted); margin:2px 4px 0; }
+  .cursor::after {
+    content:'▍'; opacity:.6; animation:blink 1s steps(2) infinite;
+  }
+  @keyframes blink { 50% { opacity:0; } }
+
+  /* пустой экран со стартовыми подсказками */
+  #empty { text-align:center; padding:8vh 10px 0; color:var(--muted); }
+  #empty .lead { font-size:14px; margin-bottom:16px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+  .chip {
+    background:var(--surface); border:1px solid var(--separator); color:var(--text-2);
+    border-radius:12px; padding:8px 12px; font-size:13px; max-width:100%;
+  }
+  .chip:active { border-color:var(--accent); color:var(--text); }
+
+  /* ---------- композер ---------- */
+  footer {
+    flex-shrink:0; display:flex; gap:8px; align-items:flex-end;
+    padding:9px 12px 12px; background:var(--surface-alt);
+    border-top:1px solid var(--separator); width:100%; max-width:100%;
+  }
+  textarea#input {
+    flex:1; min-width:0; resize:none; max-height:120px; background:var(--control);
+    border:1px solid var(--separator); border-radius:13px; padding:10px 12px;
+    font-size:16px;   /* < 16px → iOS зумит страницу при фокусе */
+  }
+  .send {
+    width:44px; height:44px; flex-shrink:0; border-radius:13px; color:#fff;
+    background:var(--brand); font-size:17px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .send:disabled { opacity:.4; }
+  #stopBtn { background:var(--control); color:var(--text-2); display:none; }
+  body.busy #sendBtn { display:none; }
+  body.busy #stopBtn { display:flex; }
+
+  #toBottom {
+    position:fixed; left:14px; bottom:calc(env(safe-area-inset-bottom) + 74px);
+    width:38px; height:38px; border-radius:50%; background:var(--surface);
+    border:1px solid var(--separator); color:var(--text-2); font-size:15px;
+    display:none; align-items:center; justify-content:center; z-index:5;
+    box-shadow:0 4px 14px rgba(0,0,0,.28);
+  }
+  #toBottom.show { display:flex; }
+
+  .toast {
+    position:fixed; left:50%; bottom:96px; transform:translateX(-50%);
+    background:var(--surface); border:1px solid var(--separator);
+    color:var(--text); padding:9px 16px; border-radius:11px;
+    font-size:13px; font-weight:600; opacity:0; transition:opacity .25s;
+    pointer-events:none; max-width:86vw; z-index:40; text-align:center;
+  }
+  .toast.show { opacity:1; }
+  .toast.err { border-color:var(--danger); color:var(--danger); }
+
+  /* ---------- боковая панель чатов ---------- */
+  #scrim {
+    position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:20;
+    opacity:0; pointer-events:none; transition:opacity .22s;
+  }
+  #scrim.show { opacity:1; pointer-events:auto; }
+  #drawer {
+    position:fixed; top:0; bottom:0; left:0; width:min(82vw,310px); z-index:21;
+    background:var(--surface-alt); border-right:1px solid var(--separator);
+    transform:translateX(-102%); transition:transform .24s ease;
+    display:flex; flex-direction:column;
+    padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+  }
+  #drawer.show { transform:translateX(0); }
+  .drawer-head {
+    display:flex; align-items:center; gap:9px; padding:14px 14px 10px;
+    border-bottom:1px solid var(--separator);
+  }
+  .drawer-head .name { font-weight:700; font-size:15px; flex:1; }
+  .newchat {
+    margin:12px 14px 8px; padding:11px; border-radius:12px; background:var(--brand);
+    color:#fff; font-weight:700; font-size:14px; text-align:center;
+  }
+  #chatList { flex:1; overflow-y:auto; padding:4px 8px 8px; }
+  .chat-item {
+    display:flex; align-items:center; gap:8px; padding:10px 10px;
+    border-radius:10px; margin-bottom:3px; cursor:pointer;
+  }
+  .chat-item.active { background:var(--accent-soft); }
+  .chat-item .ci-main { flex:1; min-width:0; }
+  .chat-item .ci-title {
+    font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .chat-item .ci-sub { font-size:11px; color:var(--muted); }
+  .chat-item .del { color:var(--muted); font-size:13px; padding:4px 6px; border-radius:6px; }
+  .drawer-foot { border-top:1px solid var(--separator); padding:8px; }
+  .drawer-foot button {
+    display:flex; align-items:center; gap:9px; width:100%; text-align:left;
+    padding:11px 10px; border-radius:10px; font-size:13.5px; color:var(--text-2);
+  }
+  .drawer-foot button:active { background:var(--control); }
+  .credit-row {
+    display:flex; align-items:center; justify-content:center; gap:7px;
+    padding:10px 0 4px; color:var(--muted); font-size:11.5px; opacity:.85;
+  }
+  .credit-row img { height:14px; display:block; }
+
+  /* ---------- шторка настроек ---------- */
+  #sheet {
+    position:fixed; left:0; right:0; bottom:0; z-index:30;
+    background:var(--surface-alt); border-top:1px solid var(--separator);
+    border-radius:18px 18px 0 0; transform:translateY(102%);
+    transition:transform .24s ease; max-height:88vh; overflow-y:auto;
+    padding:0 16px calc(env(safe-area-inset-bottom) + 18px);
+  }
+  #sheet.show { transform:translateY(0); }
+  .sheet-grip { width:38px; height:4px; border-radius:2px; background:var(--separator); margin:9px auto 4px; }
+  .sheet-title { font-weight:700; font-size:16px; margin:6px 0 14px; }
+  .field { margin-bottom:16px; }
+  .field label { display:block; font-size:12.5px; color:var(--text-2); margin-bottom:6px; }
+  .field .hint { font-size:11px; color:var(--muted); margin-top:5px; }
+  #sysPrompt {
+    width:100%; min-height:78px; max-height:180px; resize:vertical;
+    background:var(--control); border:1px solid var(--separator);
+    border-radius:11px; padding:10px 11px; font-size:16px;  /* 16px — иначе iOS зумит */
+  }
+  .row-between { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  input[type=range] { width:100%; accent-color:var(--accent); }
+  .val { font-variant-numeric:tabular-nums; font-size:13px; color:var(--text); }
+  .seg { display:flex; gap:6px; }
+  .seg button {
+    flex:1; padding:9px; border-radius:10px; background:var(--control);
+    border:1px solid var(--separator); font-size:13px; color:var(--text-2);
+  }
+  .seg button.on { background:var(--accent-soft); color:var(--text); border-color:var(--accent); }
+  .switch { display:flex; align-items:center; gap:10px; justify-content:space-between; }
+  .sw {
+    width:44px; height:26px; border-radius:13px; background:var(--control);
+    border:1px solid var(--separator); position:relative; flex-shrink:0;
+  }
+  .sw::after {
+    content:''; position:absolute; top:2px; left:2px; width:20px; height:20px;
+    border-radius:50%; background:var(--muted); transition:.2s;
+  }
+  .sw.on { background:var(--accent-soft); border-color:var(--accent); }
+  .sw.on::after { left:20px; background:var(--accent); }
+  .sheet-btn {
+    width:100%; padding:12px; border-radius:12px; background:var(--control);
+    border:1px solid var(--separator); font-size:14px; margin-bottom:9px;
+  }
+  .sheet-btn.danger { color:var(--danger); border-color:var(--danger); }
+
+  /* ---------- экран сопряжения ---------- */
+  #pairScreen {
+    position:fixed; inset:0; background:var(--window); z-index:50;
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    gap:16px; padding:32px; text-align:center;
+  }
+  #pairScreen.hidden { display:none; }
+  #pairScreen .mark { width:66px; height:66px; }
+  #pairScreen h1 { font-size:19px; }
+  #pairScreen p { color:var(--text-2); font-size:14px; max-width:280px; }
+  #codeInput {
+    background:var(--control); border:1px solid var(--separator); border-radius:12px;
+    color:var(--text); font-size:26px; letter-spacing:10px; text-align:center;
+    width:210px; padding:12px 0 12px 10px;
+  }
+  #pairBtn { padding:12px 26px; border-radius:12px; background:var(--brand); color:#fff; font-weight:700; }
+  #pairScreen .credit {
+    position:absolute; left:0; right:0;
+    bottom:calc(env(safe-area-inset-bottom) + 22px);
+    display:flex; align-items:center; justify-content:center; gap:7px;
+    color:var(--muted); font-size:12px; opacity:.85;
+  }
+  #pairScreen .credit img { height:15px; display:block; }
+</style>
+</head>
+<body>
+
+<!-- ===== экран сопряжения ===== -->
+<div id="pairScreen">
+  <img class="mark" src="/mark.svg" alt="NEYROLOC">
+  <h1>NEYROLOC</h1>
+  <p>Введите код с экрана компьютера (Файл → Удалённый доступ с телефона)</p>
+  <input id="codeInput" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+  <button id="pairBtn">Подключиться</button>
+  <p style="margin-top:14px"><a href="/neyroloc.apk" style="color:var(--accent); font-size:13px;">Скачать приложение для Android (.apk)</a></p>
+  <div class="credit">created by <img src="/rdev.svg" alt="RDEV"></div>
+</div>
+
+<!-- ===== панель чатов ===== -->
+<div id="scrim"></div>
+<aside id="drawer">
+  <div class="drawer-head">
+    <img class="mark" src="/mark.svg" alt="">
+    <div class="name">NEYROLOC</div>
+    <button class="icon-btn" id="closeDrawer">✕</button>
+  </div>
+  <button class="newchat" id="newChat">+ Новый чат</button>
+  <div id="chatList"></div>
+  <div class="drawer-foot">
+    <button id="openSettings">⚙️ Настройки</button>
+    <button id="exportChat">⬇️ Экспорт чата (.md)</button>
+    <button id="themeToggle">🌗 Тема: тёмная</button>
+    <div class="credit-row">created by <img src="/rdev.svg" alt="RDEV"></div>
+  </div>
+</aside>
+
+<!-- ===== шторка настроек ===== -->
+<div id="sheet">
+  <div class="sheet-grip"></div>
+  <div class="sheet-title">Настройки</div>
+
+  <div class="field">
+    <label for="sysPrompt">Системный промпт — задаёт роль и стиль ответов</label>
+    <textarea id="sysPrompt" placeholder="Например: отвечай кратко и по делу, на русском."></textarea>
+    <div class="hint" id="sysHint"></div>
+  </div>
+
+  <div class="field">
+    <div class="row-between">
+      <label for="tempRange" style="margin:0">Температура — разброс ответов</label>
+      <span class="val" id="tempVal">0.70</span>
+    </div>
+    <input type="range" id="tempRange" min="0" max="2" step="0.05">
+    <div class="hint">Ниже — точнее и предсказуемее, выше — свободнее и креативнее.</div>
+  </div>
+
+  <div class="field">
+    <label>Отправка сообщения</label>
+    <div class="seg">
+      <button id="segEnter">Enter отправляет</button>
+      <button id="segBtn">Только кнопкой</button>
+    </div>
+  </div>
+
+  <div class="field switch">
+    <div>
+      <label style="margin:0">Показывать статистику</label>
+      <div class="hint" style="margin:2px 0 0">Время генерации и скорость под ответом.</div>
+    </div>
+    <div class="sw" id="swStats"></div>
+  </div>
+
+  <button class="sheet-btn" id="renameChat">✏️ Переименовать чат</button>
+  <button class="sheet-btn danger" id="clearChat">🗑 Очистить этот чат</button>
+  <button class="sheet-btn" id="closeSheet">Готово</button>
+</div>
+
+<!-- ===== основной экран ===== -->
+<header>
+  <button class="icon-btn" id="openDrawer">☰</button>
+  <img class="mark" src="/mark.svg" alt="NEYROLOC">
+  <div class="head-info">
+    <div class="head-title" id="chatTitle">NEYROLOC</div>
+    <div class="head-sub"><span class="dot" id="dot"></span><span id="statusLine">подключение…</span></div>
+  </div>
+  <select id="modelSelect" title="Модель"></select>
+</header>
+
+<div id="chat"></div>
+<button id="toBottom">↓</button>
+<div class="toast" id="toast"></div>
+
+<footer>
+  <textarea id="input" rows="1" placeholder="Сообщение"></textarea>
+  <button class="send" id="sendBtn" disabled>➤</button>
+  <button class="send" id="stopBtn">■</button>
+</footer>
+
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const chatEl = $('chat'), input = $('input'), sendBtn = $('sendBtn'), stopBtn = $('stopBtn');
+
+// ============ хранилище ============
+const LS = {
+  code:'neyroloc_code', chats:'neyroloc_chats', active:'neyroloc_active', cfg:'neyroloc_settings'
+};
+const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch(e){ return d; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} };
+
+let chats = load(LS.chats, []);
+let activeId = load(LS.active, null);
+let cfg = Object.assign({ system:'', temperature:null, enterSend:true, theme:'dark', stats:true }, load(LS.cfg, {}));
+let serverDefaults = { temperature:0.7, system:'' };
+let generating = false, stopped = false;
+
+function persist(){ save(LS.chats, chats); save(LS.active, activeId); }
+function saveCfg(){ save(LS.cfg, cfg); }
+
+function newChat(){
+  const c = { id:'c'+Date.now()+Math.random().toString(36).slice(2,6), title:'Новый чат', messages:[], updated:Date.now() };
+  chats.unshift(c); activeId = c.id; persist(); return c;
+}
+function active(){
+  let c = chats.find(c => c.id === activeId);
+  if(!c){ c = chats[0] || newChat(); activeId = c.id; persist(); }
+  return c;
+}
+
+// ============ утилиты ============
+function toast(text, isErr){
+  const t = $('toast');
+  t.textContent = text;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.className = 'toast', 2400);
+}
+async function copyText(text){
+  try {
+    if(navigator.clipboard && window.isSecureContext){ await navigator.clipboard.writeText(text); }
+    else {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    }
+    toast('Скопировано');
+  } catch(e){ toast('Не удалось скопировать', true); }
+}
+const escapeAttr = s => String(s).replace(/[<>&"]/g, '');
+
+// ============ markdown → DOM (без innerHTML: всё через textContent) ============
+function inlineInto(parent, text){
+  const re = /(`[^`\n]+`)|(\*\*[^*\n]+\*\*)|(\*[^*\n]+\*)|(https?:\/\/[^\s<>()]+)/g;
+  let last = 0, m;
+  while((m = re.exec(text)) !== null){
+    if(m.index > last) parent.appendChild(document.createTextNode(text.slice(last, m.index)));
+    const tok = m[0];
+    if(m[1]){ const c = document.createElement('code'); c.className='inline'; c.textContent = tok.slice(1,-1); parent.appendChild(c); }
+    else if(m[2]){ const b = document.createElement('strong'); b.textContent = tok.slice(2,-2); parent.appendChild(b); }
+    else if(m[3]){ const i = document.createElement('em'); i.textContent = tok.slice(1,-1); parent.appendChild(i); }
+    else { const a = document.createElement('a'); a.href = escapeAttr(tok); a.textContent = tok;
+           a.target='_blank'; a.rel='noopener noreferrer'; parent.appendChild(a); }
+    last = re.lastIndex;
+  }
+  if(last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
+}
+function codeBlock(lang, code){
+  const wrap = document.createElement('div'); wrap.className = 'codewrap';
+  const head = document.createElement('div'); head.className = 'codehead';
+  const l = document.createElement('span'); l.textContent = lang || 'код';
+  const btn = document.createElement('button'); btn.textContent = 'копировать';
+  btn.onclick = e => { e.stopPropagation(); copyText(code); };
+  head.append(l, btn);
+  const pre = document.createElement('pre'); pre.textContent = code.replace(/\n$/, '');
+  wrap.append(head, pre);
+  return wrap;
+}
+function renderBlocks(el, text){
+  const lines = text.split('\n');
+  let list = null, para = null;
+  const flushPara = () => { para = null; };
+  const flushList = () => { list = null; };
+  for(const raw of lines){
+    const line = raw.replace(/\s+$/,'');
+    if(!line.trim()){ flushPara(); flushList(); continue; }
+    let m;
+    if((m = line.match(/^(#{1,3})\s+(.*)$/))){
+      flushPara(); flushList();
+      const h = document.createElement('h' + m[1].length); inlineInto(h, m[2]); el.appendChild(h);
+    } else if(/^(-{3,}|\*{3,})$/.test(line.trim())){
+      flushPara(); flushList(); el.appendChild(document.createElement('hr'));
+    } else if((m = line.match(/^>\s?(.*)$/))){
+      flushPara(); flushList();
+      const q = document.createElement('blockquote'); inlineInto(q, m[1]); el.appendChild(q);
+    } else if((m = line.match(/^\s*[-*•]\s+(.*)$/))){
+      flushPara();
+      if(!list || list.tagName !== 'UL'){ list = document.createElement('ul'); el.appendChild(list); }
+      const li = document.createElement('li'); inlineInto(li, m[1]); list.appendChild(li);
+    } else if((m = line.match(/^\s*\d+[.)]\s+(.*)$/))){
+      flushPara();
+      if(!list || list.tagName !== 'OL'){ list = document.createElement('ol'); el.appendChild(list); }
+      const li = document.createElement('li'); inlineInto(li, m[1]); list.appendChild(li);
+    } else {
+      flushList();
+      if(!para){ para = document.createElement('p'); el.appendChild(para); }
+      else para.appendChild(document.createElement('br'));
+      inlineInto(para, line);
+    }
+  }
+}
+function renderMarkdown(el, text){
+  el.textContent = '';
+  const parts = String(text).split('```');
+  parts.forEach((part, i) => {
+    if(i % 2 === 1){
+      const nl = part.indexOf('\n');
+      const lang = nl >= 0 ? part.slice(0, nl).trim() : '';
+      const code = nl >= 0 ? part.slice(nl + 1) : part;
+      el.appendChild(codeBlock(lang, code));
+    } else if(part) renderBlocks(el, part);
+  });
+}
+
+// ============ отрисовка чата ============
+function fmtStats(s){
+  if(!s) return '';
+  const sec = s.ms/1000;
+  const speed = sec > 0 ? Math.round(s.chars/sec) : 0;
+  return sec.toFixed(1) + ' с · ~' + speed + ' симв/с · ' + s.chars + ' симв.';
+}
+function messageRow(msg, index){
+  const row = document.createElement('div'); row.className = 'row ' + msg.role;
+  const bubble = document.createElement('div'); bubble.className = 'msg';
+  if(msg.role === 'assistant') renderMarkdown(bubble, msg.content);
+  else bubble.textContent = msg.content;
+  row.appendChild(bubble);
+
+  if(cfg.stats && msg.role === 'assistant' && msg.stats){
+    const meta = document.createElement('div'); meta.className = 'meta';
+    meta.textContent = fmtStats(msg.stats); row.appendChild(meta);
+  }
+
+  const acts = document.createElement('div'); acts.className = 'acts';
+  const mk = (label, fn) => { const b = document.createElement('button'); b.textContent = label; b.onclick = fn; return b; };
+  acts.appendChild(mk('копировать', () => copyText(msg.content)));
+  if(msg.role === 'assistant') acts.appendChild(mk('повторить', () => regenerate(index)));
+  if(msg.role === 'user') acts.appendChild(mk('изменить', () => { input.value = msg.content; autosize(); input.focus(); }));
+  acts.appendChild(mk('удалить', () => { const c = active(); c.messages.splice(index, 1); c.updated = Date.now(); persist(); renderChat(); }));
+  row.appendChild(acts);
+  return row;
+}
+const STARTERS = [
+  'Объясни, как работает HTTPS',
+  'Напиши скрипт на Python',
+  'Придумай план на день',
+  'Переведи текст на английский'
+];
+function renderEmpty(){
+  const box = document.createElement('div'); box.id = 'empty';
+  const lead = document.createElement('div'); lead.className = 'lead';
+  lead.textContent = 'Напишите сообщение — ответит модель, подключённая на компьютере.';
+  box.appendChild(lead);
+  const chips = document.createElement('div'); chips.className = 'chips';
+  STARTERS.forEach(t => {
+    const c = document.createElement('button'); c.className = 'chip'; c.textContent = t;
+    c.onclick = () => { input.value = t; autosize(); updateSend(); input.focus(); };
+    chips.appendChild(c);
+  });
+  box.appendChild(chips);
+  chatEl.appendChild(box);
+}
+function renderChat(keepScroll){
+  const prev = chatEl.scrollTop, atBottom = isAtBottom();
+  chatEl.textContent = '';
+  const c = active();
+  $('chatTitle').textContent = c.title || 'NEYROLOC';
+  if(!c.messages.length) renderEmpty();
+  else c.messages.forEach((m, i) => chatEl.appendChild(messageRow(m, i)));
+  if(keepScroll && !atBottom) chatEl.scrollTop = prev; else scrollToBottom();
+  renderChatList();
+}
+function renderChatList(){
+  const list = $('chatList'); list.textContent = '';
+  chats.forEach(c => {
+    const item = document.createElement('div');
+    item.className = 'chat-item' + (c.id === activeId ? ' active' : '');
+    const main = document.createElement('div'); main.className = 'ci-main';
+    const t = document.createElement('div'); t.className = 'ci-title'; t.textContent = c.title || 'Без названия';
+    const s = document.createElement('div'); s.className = 'ci-sub';
+    s.textContent = c.messages.length ? c.messages.length + ' сообщ.' : 'пусто';
+    main.append(t, s);
+    const del = document.createElement('button'); del.className = 'del'; del.textContent = '✕';
+    del.onclick = e => {
+      e.stopPropagation();
+      chats = chats.filter(x => x.id !== c.id);
+      if(activeId === c.id) activeId = chats[0] ? chats[0].id : null;
+      if(!chats.length) newChat();
+      persist(); renderChat();
+    };
+    item.append(main, del);
+    item.onclick = () => { activeId = c.id; persist(); renderChat(); closeDrawer(); };
+    list.appendChild(item);
+  });
+}
+const isAtBottom = () => (chatEl.scrollHeight - chatEl.scrollTop - chatEl.clientHeight) < 70;
+const scrollToBottom = () => { chatEl.scrollTop = chatEl.scrollHeight; };
+chatEl.addEventListener('scroll', () => $('toBottom').classList.toggle('show', !isAtBottom()));
+$('toBottom').onclick = scrollToBottom;
+
+// ============ панель и шторка ============
+const openDrawer = () => { $('drawer').classList.add('show'); $('scrim').classList.add('show'); renderChatList(); };
+const closeDrawer = () => { $('drawer').classList.remove('show'); $('scrim').classList.remove('show'); };
+$('openDrawer').onclick = openDrawer;
+$('closeDrawer').onclick = closeDrawer;
+$('scrim').onclick = () => { closeDrawer(); closeSheet(); };
+$('newChat').onclick = () => { newChat(); renderChat(); closeDrawer(); input.focus(); };
+
+const openSheet = () => { syncSheet(); $('sheet').classList.add('show'); $('scrim').classList.add('show'); };
+const closeSheet = () => { $('sheet').classList.remove('show'); $('scrim').classList.remove('show'); };
+$('openSettings').onclick = () => { closeDrawer(); openSheet(); };
+$('closeSheet').onclick = closeSheet;
+
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme', cfg.theme);
+  $('themeToggle').textContent = '🌗 Тема: ' + (cfg.theme === 'dark' ? 'тёмная' : 'светлая');
+  const meta = document.querySelector('meta[name=theme-color]');
+  if(meta) meta.setAttribute('content', cfg.theme === 'dark' ? '#0d111a' : '#f5f7fb');
+}
+$('themeToggle').onclick = () => { cfg.theme = cfg.theme === 'dark' ? 'light' : 'dark'; saveCfg(); applyTheme(); };
+
+function syncSheet(){
+  $('sysPrompt').value = cfg.system || '';
+  $('sysHint').textContent = serverDefaults.system
+    ? 'На компьютере задан свой промпт — оставьте поле пустым, чтобы использовать его.'
+    : 'Пусто — модель отвечает без дополнительных инструкций.';
+  const t = (cfg.temperature === null ? serverDefaults.temperature : cfg.temperature);
+  $('tempRange').value = t;
+  $('tempVal').textContent = Number(t).toFixed(2) + (cfg.temperature === null ? ' (с компьютера)' : '');
+  $('segEnter').classList.toggle('on', cfg.enterSend);
+  $('segBtn').classList.toggle('on', !cfg.enterSend);
+  $('swStats').classList.toggle('on', cfg.stats);
+}
+$('sysPrompt').addEventListener('input', e => { cfg.system = e.target.value; saveCfg(); });
+$('tempRange').addEventListener('input', e => {
+  cfg.temperature = parseFloat(e.target.value); saveCfg();
+  $('tempVal').textContent = cfg.temperature.toFixed(2);
+});
+$('segEnter').onclick = () => { cfg.enterSend = true; saveCfg(); syncSheet(); };
+$('segBtn').onclick = () => { cfg.enterSend = false; saveCfg(); syncSheet(); };
+$('swStats').onclick = () => { cfg.stats = !cfg.stats; saveCfg(); syncSheet(); renderChat(); };
+$('renameChat').onclick = () => {
+  const c = active(); const name = prompt('Название чата', c.title || '');
+  if(name !== null){ c.title = name.trim() || c.title; persist(); renderChat(); }
+};
+$('clearChat').onclick = () => {
+  const c = active(); c.messages = []; c.title = 'Новый чат'; c.updated = Date.now();
+  persist(); renderChat(); closeSheet(); toast('Чат очищен');
+};
+$('exportChat').onclick = () => {
+  const c = active();
+  if(!c.messages.length){ toast('Чат пуст', true); return; }
+  const md = '# ' + (c.title || 'NEYROLOC') + '\n\n' + c.messages
+    .map(m => (m.role === 'user' ? '**Вы:**\n\n' : '**Модель:**\n\n') + m.content).join('\n\n---\n\n');
+  try {
+    const blob = new Blob([md], {type:'text/markdown'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (c.title || 'neyroloc').replace(/[^\wа-яА-Я -]/g,'').slice(0,40) + '.md';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast('Файл сохранён');
+  } catch(e){ copyText(md); }
+  closeDrawer();
+};
+
+// ============ сопряжение ============
+const code = () => localStorage.getItem(LS.code) || '';
+const authHeaders = () => ({'X-Code': code(), 'Content-Type':'application/json'});
+async function tryPair(c){
+  try {
+    const r = await fetch('/api/pair', {method:'POST', headers:{'Content-Type':'application/json'},
+                                        body: JSON.stringify({code:c})});
+    if(r.ok){ localStorage.setItem(LS.code, c); $('pairScreen').classList.add('hidden'); refreshState(); }
+    else toast('Неверный код', true);
+  } catch(e){ toast('Нет связи с компьютером', true); }
+}
+$('pairBtn').onclick = () => tryPair($('codeInput').value.trim());
+$('codeInput').addEventListener('keydown', e => { if(e.key === 'Enter') tryPair($('codeInput').value.trim()); });
+
+// ============ состояние ============
+async function refreshState(){
+  try {
+    const r = await fetch('/api/state', {headers: authHeaders()});
+    if(r.status === 401){ $('pairScreen').classList.remove('hidden'); return; }
+    const s = await r.json();
+    serverDefaults.temperature = (typeof s.temperature === 'number') ? s.temperature : 0.7;
+    serverDefaults.system = s.system || '';
+    $('dot').className = 'dot ' + (s.backend ? 'on' : 'off');
+    $('statusLine').textContent = s.backend
+      ? (s.backend + (s.busy ? ' · занят' : '')) : 'backend не подключён на компьютере';
+    const sel = $('modelSelect'), prev = sel.value;
+    const models = s.models || [];
+    if(models.join('|') !== Array.from(sel.options).map(o => o.value).join('|')){
+      sel.textContent = '';
+      models.forEach(m => { const o = document.createElement('option'); o.value = o.textContent = m; sel.appendChild(o); });
+    }
+    sel.value = s.model || prev || '';
+    updateSend();
+  } catch(e){
+    $('dot').className = 'dot off';
+    $('statusLine').textContent = 'нет связи с компьютером';
+  }
+}
+$('modelSelect').onchange = async () => {
+  try {
+    const r = await fetch('/api/model', {method:'POST', headers: authHeaders(),
+                                          body: JSON.stringify({model: $('modelSelect').value})});
+    if(!r.ok) toast((await r.json()).error || 'Не удалось сменить модель', true);
+    else toast('Модель: ' + $('modelSelect').value);
+  } catch(e){ toast('Нет связи', true); }
+  refreshState();
+};
+setInterval(() => { if(!generating && code()) refreshState(); }, 5000);
+
+// ============ композер ============
+function autosize(){ input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; }
+function updateSend(){ sendBtn.disabled = generating || !input.value.trim(); }
+input.addEventListener('input', () => { autosize(); updateSend(); });
+input.addEventListener('keydown', e => {
+  if(e.key === 'Enter' && !e.shiftKey && cfg.enterSend){ e.preventDefault(); send(); }
+});
+sendBtn.onclick = () => send();
+stopBtn.onclick = async () => {
+  stopped = true;
+  try { await fetch('/api/stop', {method:'POST', headers: authHeaders()}); } catch(e){}
+};
+
+function regenerate(index){
+  if(generating) return;
+  const c = active();
+  c.messages = c.messages.slice(0, index); // убираем ответ и всё после него
+  persist(); renderChat();
+  send(null, true);
+}
+
+async function send(textOverride, isRegen){
+  if(generating) return;
+  const c = active();
+  const text = textOverride !== undefined && textOverride !== null ? textOverride : input.value.trim();
+  if(!isRegen){
+    if(!text) return;
+    input.value = ''; autosize();
+    c.messages.push({role:'user', content:text});
+    if(c.title === 'Новый чат') c.title = text.slice(0, 38) + (text.length > 38 ? '…' : '');
+  }
+  if(!c.messages.length || c.messages[c.messages.length-1].role !== 'user'){ toast('Нечего отправлять', true); return; }
+  c.updated = Date.now(); persist(); renderChat();
+
+  generating = true; stopped = false;
+  document.body.classList.add('busy'); updateSend();
+
+  // живой пузырь ответа
+  const row = document.createElement('div'); row.className = 'row assistant';
+  const bubble = document.createElement('div'); bubble.className = 'msg cursor';
+  row.appendChild(bubble); chatEl.appendChild(row); scrollToBottom();
+
+  const started = performance.now();
+  let acc = '', lastPaint = 0;
+  try {
+    const payload = { messages: c.messages.map(m => ({role:m.role, content:m.content})) };
+    if(cfg.system && cfg.system.trim()) payload.system = cfg.system.trim();
+    if(cfg.temperature !== null) payload.temperature = cfg.temperature;
+
+    const r = await fetch('/api/chat', {method:'POST', headers: authHeaders(), body: JSON.stringify(payload)});
+    if(!r.ok){
+      let err = 'Ошибка ' + r.status;
+      try { err = (await r.json()).error || err; } catch(e){}
+      row.remove(); toast(err, true); return;
+    }
+    const reader = r.body.getReader(), dec = new TextDecoder();
+    while(true){
+      const {done, value} = await reader.read();
+      if(done) break;
+      acc += dec.decode(value, {stream:true});
+      const now = performance.now();
+      if(now - lastPaint > 70){          // не перерисовываем markdown на каждый чанк
+        lastPaint = now;
+        const stick = isAtBottom();
+        renderMarkdown(bubble, acc); bubble.classList.add('cursor');
+        if(stick) scrollToBottom();
+      }
+    }
+    row.remove();
+    if(acc.trim()){
+      const stats = { ms: performance.now() - started, chars: acc.length };
+      c.messages.push({role:'assistant', content:acc, stats});
+      c.updated = Date.now(); persist();
+    } else if(stopped) toast('Остановлено');
+    renderChat();
+  } catch(e){
+    row.remove();
+    toast(stopped ? 'Остановлено' : 'Связь прервана', !stopped);
+    renderChat();
+  } finally {
+    generating = false;
+    document.body.classList.remove('busy');
+    updateSend(); refreshState();
+  }
+}
+
+// ============ старт ============
+applyTheme();
+if(!chats.length) newChat();
+renderChat();
+
+// Код мог приехать в ссылке из QR (…/?code=123456) — подключаемся сразу,
+// а сам код убираем из адреса, чтобы не оставался в истории браузера.
+(function autoPair(){
+  const fromLink = new URLSearchParams(location.search).get('code');
+  if(fromLink && /^\d{4,8}$/.test(fromLink)){
+    history.replaceState(null, '', location.pathname);
+    $('pairScreen').classList.remove('hidden');
+    $('codeInput').value = fromLink;
+    tryPair(fromLink);
+    return;
+  }
+  if(!code()) $('pairScreen').classList.remove('hidden');
+  else $('pairScreen').classList.add('hidden');
+})();
+refreshState();
+</script>
+</body>
+</html>

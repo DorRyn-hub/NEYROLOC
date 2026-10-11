@@ -1,0 +1,11 @@
+# Зависимости для работы с локальными моделями HuggingFace
+# Python 3.10+
+
+# Библиотека для загрузки GGUF моделей
+llama-cpp-python>=0.2.0
+
+# Красивый вывод в терминале
+rich>=13.0.0
+
+# Для Mac с Apple Silicon (M1/M2/M3) используйте:
+# CMAKE_ARGS="-DLLAMA_METAL=on" pip install llama-cpp-python

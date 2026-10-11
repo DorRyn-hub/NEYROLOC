@@ -1,0 +1,10 @@
+[extend]
+useDefault = true
+
+# Exact public model identifiers in the upstream speculative-decoding example.
+[[rules]]
+id = "generic-api-key"
+[[rules.allowlists]]
+description = "Public model identifiers"
+regexTarget = "secret"
+regexes = ['''^qwen2\.5-(7b-instruct-1m|0\.5b-instruct)$''']

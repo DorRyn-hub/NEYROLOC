@@ -1,0 +1,33 @@
+name: Восстановить версию
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Полный SHA коммита или тег версии из истории main'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: restore-main
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Получить постоянные инструменты восстановления
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: version-control
+          fetch-depth: 0
+      - name: Установить проверенный сканер секретов
+        run: python3 scripts/install_gitleaks.py
+      - name: Проверить снимок и восстановить main новым коммитом
+        env:
+          RESTORE_VERSION: ${{ inputs.version }}
+        run: python3 scripts/restore_version.py --version "$RESTORE_VERSION"
