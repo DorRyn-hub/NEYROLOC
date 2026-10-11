@@ -23,7 +23,7 @@ class PersistentHooksTests(unittest.TestCase):
             subprocess.run(['python3', str(repo / 'scripts/install_hooks.py')],
                            cwd=repo, check=True, capture_output=True)
             hook_path = Path(git('config', '--get', 'core.hooksPath').stdout.strip())
-            self.assertEqual(hook_path, repo / '.git/project-hooks')
+            self.assertEqual(hook_path.resolve(), (repo / '.git/project-hooks').resolve())
             shutil.rmtree(repo / 'scripts')
             shutil.rmtree(repo / '.githooks')
             (repo / '.gitleaks.toml').unlink()
