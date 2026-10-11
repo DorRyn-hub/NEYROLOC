@@ -25,7 +25,6 @@ jobs:
         with:
           ref: version-control
           fetch-depth: 0
-          token: ${{ secrets.VERSION_RECOVERY_TOKEN }}
       - name: Установить проверенный сканер секретов
         run: python3 scripts/install_gitleaks.py
       - name: Проверить снимок и восстановить main новым коммитом
