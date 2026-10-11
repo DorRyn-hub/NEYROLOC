@@ -1,32 +1,11 @@
-# NEYROLOC NEW
+# NEYROLOC NEW — инструкции перенесены
 
-Объединённый проект: алгоритмы и функции из `NEYROLOC_2` подключены к PySide6-интерфейсу из `NEYROLOCK_5`.
+Актуальная точка входа для пользователей — [README.md](README.md).
 
-## Запуск
+- [Скачать, установить и запустить на Windows, macOS или Linux](docs/INSTALL.md)
+- [Выбрать модель, вести чат и подключить телефон](docs/USER_GUIDE.md)
+- [Решить проблемы и попросить помощь](docs/TROUBLESHOOTING.md)
+- [История и восстановление исходников](VERSIONING.md)
 
-Откройте:
-
-```bash
-$HOME/PycharmProjects/PycharmProjects/neyroloc_NEW/START_NEYROLOC_NEW.command
-```
-
-Или из терминала:
-
-```bash
-cd $HOME/PycharmProjects/PycharmProjects/neyroloc_NEW
-./NEYROLOC_2/NEYROLOC/.venv/bin/python main.py
-```
-
-## Что подключено
-
-- LM Studio
-- Ollama
-- HuggingFace GGUF
-- Local GGUF
-- Groq
-- OpenAI / OpenAI-compatible API
-- библиотека скачанных моделей из `~/.neyrolock_models`
-- рекомендованные HuggingFace GGUF модели из v2
-- сохранение и открытие истории чатов
-
-Рабочее окружение для запуска: `NEYROLOC_2/NEYROLOC/.venv`.
+Для нового скачивания используйте исходники ветки **main** и создавайте свою `.venv`
+по инструкции. Старые локальные пути разработчика не нужны.
