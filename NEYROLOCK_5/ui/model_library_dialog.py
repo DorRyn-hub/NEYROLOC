@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QFileDialog,
+    QScrollArea,
     QFrame,
     QHBoxLayout,
     QHeaderView,
@@ -30,6 +32,8 @@ from PySide6.QtWidgets import (
 )
 
 from core.model_library import DownloadedModel, ModelLibrary, RecommendedModel
+from ui.workspace import PageHeader, action
+from ui.icons import icon
 
 # GGUF-файлы, разбитые на части ("...-00001-of-00002.gguf") нельзя скачать
 # одним файлом через hf_hub_download — приложение пока не умеет их собирать,
@@ -70,30 +74,39 @@ class ModelLibraryDialog(QDialog):
     useModelRequested = Signal(str)
     downloadRequested = Signal(str, str, str, str)  # repo_id, filename, description, token
 
-    def __init__(self, library: ModelLibrary, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, library: ModelLibrary, parent: Optional[QWidget] = None, *, embedded: bool = False) -> None:
         super().__init__(parent)
         self.setObjectName("modelLibraryDialog")
         self.setWindowTitle("Библиотека моделей")
         self.resize(920, 600)
-        self.setMinimumSize(760, 480)
+        self._embedded = embedded
+        if embedded:
+            self.setWindowFlags(Qt.Widget)
+        else:
+            self.setMinimumSize(760, 480)
+        self._downloading = False
+        self._card_actions: list[QPushButton] = []
         self._library = library
         self._downloaded: list[DownloadedModel] = []
         self._recommended: list[RecommendedModel] = []
         self._filename_display_to_raw: dict[str, str] = {}
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(18, 18, 18, 18)
+        margin = 0 if embedded else 18
+        root.setContentsMargins(margin, margin, margin, margin)
         root.setSpacing(12)
 
-        title = QLabel("Локальные и HuggingFace GGUF модели")
-        title.setObjectName("dialogTitle")
-        root.addWidget(title)
+        header = PageHeader("Библиотека моделей", "Выберите модель для локальной работы или скачайте её с Hugging Face")
+        self._add_file_btn = action("Добавить GGUF", "plus")
+        self._add_file_btn.clicked.connect(self._pick_local_file)
+        header.row.addWidget(self._add_file_btn)
+        root.addWidget(header)
 
         tabs = QTabWidget()
         tabs.setObjectName("modelLibraryTabs")
-        tabs.addTab(self._build_downloaded_tab(), "Скачанные")
-        tabs.addTab(self._build_recommended_tab(), "Рекомендованные")
-        tabs.addTab(self._build_search_tab(), "Поиск HuggingFace")
+        tabs.addTab(self._build_downloaded_tab(), "На этом компьютере")
+        tabs.addTab(self._build_recommended_tab(), "Рекомендуемые")
+        tabs.addTab(self._build_search_tab(), "Поиск Hugging Face")
         root.addWidget(tabs, 1)
 
         # Панель скачивания — общая для всех вкладок и всегда на виду, даже
@@ -116,6 +129,7 @@ class ModelLibraryDialog(QDialog):
         self._download_status_label = QLabel("")
         self._download_status_label.setObjectName("downloadStatusText")
         self._download_status_label.setWordWrap(True)
+        self._download_status_label.setTextFormat(Qt.PlainText)
         status_row.addWidget(self._download_status_label, 1)
         panel_layout.addLayout(status_row)
 
@@ -135,89 +149,65 @@ class ModelLibraryDialog(QDialog):
         self._spinner_timer.setInterval(90)
         self._spinner_timer.timeout.connect(self._advance_spinner)
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Close)
-        close_btn = buttons.button(QDialogButtonBox.Close)
-        if close_btn is not None:
-            close_btn.setText("Закрыть")
-        buttons.rejected.connect(self.reject)
-        root.addWidget(buttons)
-
+        if not embedded:
+            buttons = QDialogButtonBox(QDialogButtonBox.Close)
+            buttons.button(QDialogButtonBox.Close).setText("Закрыть")
+            buttons.rejected.connect(self.reject)
+            root.addWidget(buttons)
         self.refresh()
+
+    def _card_list(self) -> tuple[QScrollArea, QVBoxLayout]:
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(0, 0, 8, 0)
+        layout.setSpacing(10)
+        scroll.setWidget(content)
+        return scroll, layout
 
     def _build_downloaded_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        layout.setContentsMargins(0, 12, 0, 0)
-        layout.setSpacing(10)
-
-        self._downloaded_table = QTableWidget(0, 4)
-        self._downloaded_table.setHorizontalHeaderLabels(
-            ["Модель", "Размер", "Источник", "Путь"]
-        )
-        self._downloaded_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self._downloaded_table.setSelectionMode(QTableWidget.SingleSelection)
-        self._downloaded_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._downloaded_table.setShowGrid(False)
-        self._downloaded_table.doubleClicked.connect(self._use_selected_downloaded)
-        downloaded_header = self._downloaded_table.horizontalHeader()
-        downloaded_header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        downloaded_header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        downloaded_header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        downloaded_header.setSectionResizeMode(3, QHeaderView.Stretch)
-        self._downloaded_table.verticalHeader().setVisible(False)
-        self._downloaded_table.setAlternatingRowColors(True)
-        layout.addWidget(self._downloaded_table, 1)
-
+        layout.setContentsMargins(0, 18, 0, 0)
         row = QHBoxLayout()
-        refresh_btn = QPushButton("Обновить")
+        self._filter_edit = QLineEdit()
+        self._filter_edit.setObjectName("searchInput")
+        self._filter_edit.setPlaceholderText("Поиск на этом компьютере")
+        self._filter_edit.addAction(icon("search"), QLineEdit.LeadingPosition)
+        self._filter_edit.textChanged.connect(self._filter_downloaded)
+        row.addWidget(self._filter_edit, 1)
+        refresh_btn = action("Обновить", "refresh")
         refresh_btn.clicked.connect(self.refresh)
-        use_btn = QPushButton("Использовать")
-        use_btn.setObjectName("primary")
-        use_btn.clicked.connect(self._use_selected_downloaded)
         row.addWidget(refresh_btn)
-        row.addStretch(1)
-        row.addWidget(use_btn)
         layout.addLayout(row)
-
+        scroll, self._downloaded_cards = self._card_list()
+        layout.addWidget(scroll, 1)
         return tab
 
     def _build_recommended_tab(self) -> QWidget:
         tab = QWidget()
         layout = QVBoxLayout(tab)
-        layout.setContentsMargins(0, 12, 0, 0)
-        layout.setSpacing(10)
-
-        self._recommended_table = QTableWidget(0, 5)
-        self._recommended_table.setHorizontalHeaderLabels(
-            ["Категория", "Файл", "Размер", "Repo", "Описание"]
-        )
-        self._recommended_table.setSelectionBehavior(QTableWidget.SelectRows)
-        self._recommended_table.setSelectionMode(QTableWidget.SingleSelection)
-        self._recommended_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._recommended_table.setShowGrid(False)
-        self._recommended_table.doubleClicked.connect(self._download_selected_recommended)
-        recommended_header = self._recommended_table.horizontalHeader()
-        recommended_header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        recommended_header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-        recommended_header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        recommended_header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        recommended_header.setSectionResizeMode(4, QHeaderView.Stretch)
-        self._recommended_table.verticalHeader().setVisible(False)
-        self._recommended_table.setAlternatingRowColors(True)
-        layout.addWidget(self._recommended_table, 1)
-
-        row = QHBoxLayout()
-        hint = QLabel("Скачивание может занять время: модели весят от сотен MB до нескольких GB.")
-        hint.setObjectName("hint")
+        layout.setContentsMargins(0, 18, 0, 0)
+        hint = QLabel("Выберите размер под свой компьютер. Скачивание начнётся после нажатия кнопки.")
+        hint.setObjectName("pageSubtitle")
         hint.setWordWrap(True)
-        self._recommended_download_btn = QPushButton("Скачать выбранную")
-        self._recommended_download_btn.setObjectName("primary")
-        self._recommended_download_btn.clicked.connect(self._download_selected_recommended)
-        row.addWidget(hint, 1)
-        row.addWidget(self._recommended_download_btn)
-        layout.addLayout(row)
-
+        layout.addWidget(hint)
+        scroll, self._recommended_cards = self._card_list()
+        layout.addWidget(scroll, 1)
         return tab
+
+    def _pick_local_file(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(self, "Выберите локальную модель", "", "GGUF (*.gguf)")
+        if path:
+            self._use_model(path)
+
+    def _use_model(self, path: str) -> None:
+        self.useModelRequested.emit(path)
+        if not self._embedded:
+            self.accept()
 
     def _build_search_tab(self) -> QWidget:
         tab = QWidget()
@@ -306,7 +296,7 @@ class ModelLibraryDialog(QDialog):
         layout.addWidget(form_widget)
 
         row = QHBoxLayout()
-        hint = QLabel("После скачивания модель появится на вкладке «Скачанные».")
+        hint = QLabel("После скачивания модель появится на вкладке «На этом компьютере».")
         hint.setObjectName("hint")
         hint.setWordWrap(True)
         self._search_download_btn = QPushButton("Скачать")
@@ -315,8 +305,13 @@ class ModelLibraryDialog(QDialog):
         row.addWidget(hint, 1)
         row.addWidget(self._search_download_btn)
         layout.addLayout(row)
+        layout.addStretch(1)
 
-        return tab
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        scroll.setWidget(tab)
+        return scroll
 
     def _search_hf_models(self) -> None:
         query = self._query_edit.text().strip()
@@ -440,73 +435,97 @@ class ModelLibraryDialog(QDialog):
             self._search_btn.setEnabled(True)
 
     def refresh(self) -> None:
+        self._card_actions = []
         self._downloaded = self._library.list_downloaded()
         self._recommended = self._library.recommended()
         self._fill_downloaded()
         self._fill_recommended()
 
+    @staticmethod
+    def _clear_cards(layout: QVBoxLayout) -> None:
+        while layout.count():
+            item = layout.takeAt(0)
+            if item.widget():
+                item.widget().hide()
+                item.widget().deleteLater()
+
+    def _model_card(self, model, recommended: bool) -> QFrame:
+        card = QFrame()
+        card.setObjectName("modelCard")
+        card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        row = QHBoxLayout(card)
+        row.setContentsMargins(20, 18, 20, 18)
+        row.setSpacing(16)
+        glyph = QLabel()
+        glyph.setPixmap(icon("cpu", "#8cb9ff", 24).pixmap(24, 24))
+        glyph.setFixedSize(40, 40)
+        glyph.setObjectName("modelGlyph")
+        row.addWidget(glyph, 0, Qt.AlignTop)
+        info = QVBoxLayout()
+        title = QLabel(model.filename.removesuffix(".gguf"))
+        title.setObjectName("modelCardTitle")
+        title.setTextFormat(Qt.PlainText)
+        title.setWordWrap(True)
+        info.addWidget(title)
+        subtitle = QLabel(f"{model.size_label} · {model.repo_id or 'Локальный файл'}")
+        subtitle.setObjectName("pageSubtitle")
+        subtitle.setTextFormat(Qt.PlainText)
+        subtitle.setWordWrap(True)
+        info.addWidget(subtitle)
+        if model.description:
+            description = QLabel(model.description)
+            description.setTextFormat(Qt.PlainText)
+            description.setObjectName("modelCaption")
+            description.setWordWrap(True)
+            info.addWidget(description)
+        row.addLayout(info, 1)
+        button = action("Скачать" if recommended else "Использовать", "download" if recommended else "chat", primary=not recommended)
+        button.setEnabled(not self._downloading)
+        self._card_actions.append(button)
+        if recommended:
+            button.clicked.connect(lambda checked=False, m=model: self.downloadRequested.emit(m.repo_id, m.filename, m.description, ""))
+        else:
+            card.setToolTip(str(model.path))
+            button.clicked.connect(lambda checked=False, m=model: self._use_model(str(m.path)))
+        row.addWidget(button, 0, Qt.AlignVCenter)
+        return card
+
     def _fill_downloaded(self) -> None:
-        self._downloaded_table.setRowCount(len(self._downloaded))
-        for row, model in enumerate(self._downloaded):
-            values = [
-                model.filename,
-                model.size_label,
-                model.repo_id,
-                str(model.path),
-            ]
-            for col, value in enumerate(values):
-                item = QTableWidgetItem(value)
-                item.setToolTip(value)
-                self._downloaded_table.setItem(row, col, item)
-        self._downloaded_table.resizeColumnsToContents()
+        self._clear_cards(self._downloaded_cards)
+        self._downloaded_card_rows = []
+        for model in self._downloaded:
+            card = self._model_card(model, False)
+            self._downloaded_cards.addWidget(card)
+            self._downloaded_card_rows.append((card, f"{model.filename} {model.repo_id}".lower()))
+        self._empty_library = QLabel("Здесь появятся ваши модели\n\nДобавьте GGUF-файл или выберите модель в рекомендуемых.")
+        self._empty_library.setObjectName("emptySubtitle")
+        self._empty_library.setWordWrap(True)
+        self._empty_library.setAlignment(Qt.AlignCenter)
+        self._empty_library.setMinimumHeight(180)
+        self._downloaded_cards.addWidget(self._empty_library)
+        self._downloaded_cards.addStretch(1)
+        self._filter_downloaded(self._filter_edit.text())
+
+    def _filter_downloaded(self, query: str) -> None:
+        found = 0
+        for card, search_text in self._downloaded_card_rows:
+            visible = query.strip().lower() in search_text
+            card.setVisible(visible)
+            found += visible
+        self._empty_library.setVisible(not found)
+        self._empty_library.setText("Ничего не найдено. Попробуйте другое название." if self._downloaded and not found else "Здесь появятся ваши модели\n\nДобавьте GGUF-файл или выберите модель в рекомендуемых.")
 
     def _fill_recommended(self) -> None:
-        self._recommended_table.setRowCount(len(self._recommended))
-        for row, model in enumerate(self._recommended):
-            values = [
-                model.category,
-                model.filename,
-                model.size_label,
-                model.repo_id,
-                model.description,
-            ]
-            for col, value in enumerate(values):
-                item = QTableWidgetItem(value)
-                item.setToolTip(value)
-                self._recommended_table.setItem(row, col, item)
-        self._recommended_table.resizeColumnsToContents()
-
-    def _selected_downloaded(self) -> DownloadedModel | None:
-        rows = self._downloaded_table.selectionModel().selectedRows()
-        if not rows:
-            return None
-        row = rows[0].row()
-        if row < 0 or row >= len(self._downloaded):
-            return None
-        return self._downloaded[row]
-
-    def _selected_recommended(self) -> RecommendedModel | None:
-        rows = self._recommended_table.selectionModel().selectedRows()
-        if not rows:
-            return None
-        row = rows[0].row()
-        if row < 0 or row >= len(self._recommended):
-            return None
-        return self._recommended[row]
-
-    def _use_selected_downloaded(self) -> None:
-        model = self._selected_downloaded()
-        if model is None:
-            return
-        self.useModelRequested.emit(str(Path(model.path)))
-        self.accept()
-
-    def _download_selected_recommended(self) -> None:
-        model = self._selected_recommended()
-        if model is None:
-            self.set_download_status("Сначала выберите модель в таблице выше.")
-            return
-        self.downloadRequested.emit(model.repo_id, model.filename, model.description, "")
+        self._clear_cards(self._recommended_cards)
+        category = None
+        for model in self._recommended:
+            if model.category != category:
+                category = model.category
+                label = QLabel(category.upper())
+                label.setObjectName("sidebarSection")
+                self._recommended_cards.addWidget(label)
+            self._recommended_cards.addWidget(self._model_card(model, True))
+        self._recommended_cards.addStretch(1)
 
     def _download_manual(self) -> None:
         repo = self._repo_edit.text().strip()
@@ -527,6 +546,7 @@ class ModelLibraryDialog(QDialog):
 
     def set_download_status(self, text: str) -> None:
         self._download_status_label.setText(text)
+        self._download_panel.setVisible(bool(text) or self._downloading)
 
     def set_download_progress(self, percent: int, done: int, total: int) -> None:
         self._download_progress.setValue(max(0, min(100, percent)))
@@ -536,9 +556,14 @@ class ModelLibraryDialog(QDialog):
             )
 
     def set_downloading(self, active: bool) -> None:
-        self._recommended_download_btn.setEnabled(not active)
+        self._downloading = active
+        for button in self._card_actions:
+            button.setEnabled(not active)
+        self._add_file_btn.setEnabled(not active)
         self._search_download_btn.setEnabled(not active)
-        self._download_panel.setVisible(active)
+        self._download_panel.setVisible(active or bool(self._download_status_label.text()))
+        self._download_spinner.setVisible(active)
+        self._download_progress.setVisible(active)
         if active:
             self._download_progress.setValue(0)
             self._spinner_frame = 0

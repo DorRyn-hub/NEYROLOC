@@ -11,8 +11,11 @@ from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
+    QFrame,
     QMainWindow,
     QMessageBox,
+    QStackedWidget,
+    QVBoxLayout,
     QScrollArea,
     QSplitter,
     QStatusBar,
@@ -22,7 +25,7 @@ from PySide6.QtWidgets import (
 from backends import ALL_BACKENDS, Backend
 from backends.base import BackendConfig, Message
 from core.config import Config
-from core.history import HISTORY_DIR, ChatSession, load_session
+from core.history import HISTORY_DIR, ChatSession, list_sessions, load_session
 from core.model_library import ModelLibrary
 from core.tunnel import Tunnel
 from core.remote_server import (
@@ -36,6 +39,7 @@ from ui.chat_widget import ChatWidget
 from ui.model_library_dialog import ModelLibraryDialog
 from ui.remote_dialog import RemoteAccessDialog
 from ui.sidebar import Sidebar
+from ui.workspace import PageHeader, WorkspaceNav, action
 
 
 class PrepareWorker(QThread):
@@ -180,7 +184,9 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("NEYROLOC NEW")
-        self.resize(1280, 800)
+        self.resize(1440, 960)
+        self.setMinimumSize(1000, 680)
+        self._model_ready = False
 
         self.config = Config()
         self.session = ChatSession(self.config.system_prompt)
@@ -210,33 +216,71 @@ class MainWindow(QMainWindow):
         self._tunnel = Tunnel(self.config, DEFAULT_PORT, parent=self)
         self._tunnel.statusChanged.connect(self._set_status)
 
-        # --- центральный виджет ---
         central = QWidget()
         central.setObjectName("central")
         layout = QHBoxLayout(central)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        layout.setContentsMargins(12, 12, 12, 4)
+        layout.setSpacing(16)
+        self.workspace_nav = WorkspaceNav()
+        self._sidebar_scroll = self.workspace_nav
+        layout.addWidget(self.workspace_nav)
+        self._pages = QStackedWidget()
+        layout.addWidget(self._pages, 1)
 
-        splitter = QSplitter(Qt.Horizontal)
         self.sidebar = Sidebar()
-        sidebar_scroll = QScrollArea()
-        sidebar_scroll.setObjectName("sidebarScroll")
-        sidebar_scroll.setWidgetResizable(True)
-        sidebar_scroll.setFrameShape(QScrollArea.NoFrame)
-        sidebar_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        sidebar_scroll.setWidget(self.sidebar)
-        sidebar_scroll.setFixedWidth(360)
-        self._sidebar_scroll = sidebar_scroll
         self.chat = ChatWidget()
-        splitter.addWidget(sidebar_scroll)
-        splitter.addWidget(self.chat)
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-        splitter.setChildrenCollapsible(False)
-        layout.addWidget(splitter)
+        chat_page = QWidget()
+        chat_layout = QVBoxLayout(chat_page)
+        chat_layout.setContentsMargins(0, 0, 0, 0)
+        chat_layout.setSpacing(14)
+        self._chat_header = PageHeader("Новый диалог", "Подключите локальную или облачную модель")
+        new_chat = action("Новый чат", "plus")
+        new_chat.clicked.connect(self._on_new_chat)
+        export = action("Экспорт", "download")
+        export.clicked.connect(self._on_save_chat)
+        self._chat_header.row.addWidget(new_chat)
+        self._chat_header.row.addWidget(export)
+        chat_layout.addWidget(self._chat_header)
+        chat_body = QSplitter(Qt.Horizontal)
+        chat_body.setChildrenCollapsible(False)
+        chat_body.addWidget(self.chat)
+        inspector_scroll = QScrollArea()
+        inspector_scroll.setObjectName("parameterScroll")
+        inspector_scroll.setWidgetResizable(True)
+        inspector_scroll.setFrameShape(QFrame.NoFrame)
+        inspector_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        inspector_scroll.setMinimumWidth(250)
+        inspector_scroll.setMaximumWidth(306)
+        inspector_scroll.setWidget(self.sidebar)
+        chat_body.addWidget(inspector_scroll)
+        chat_body.setStretchFactor(0, 1)
+        chat_body.setStretchFactor(1, 0)
+        chat_body.setSizes([790, 286])
+        chat_layout.addWidget(chat_body, 1)
+        self._pages.addWidget(chat_page)
 
+        self._library_page = ModelLibraryDialog(self.model_library, self, embedded=True)
+        self._library_page.useModelRequested.connect(self._use_local_model)
+        self._library_page.downloadRequested.connect(self._download_model)
+        self._model_library_dialog = self._library_page
+        self._pages.addWidget(self._library_page)
+        settings_scroll = QScrollArea()
+        settings_scroll.setObjectName("settingsScroll")
+        settings_scroll.setWidgetResizable(True)
+        settings_scroll.setFrameShape(QFrame.NoFrame)
+        settings_scroll.setWidget(self.sidebar.connection_page)
+        self._pages.addWidget(settings_scroll)
         self.setCentralWidget(central)
         self.setStatusBar(QStatusBar())
+        self.statusBar().setSizeGripEnabled(False)
+        self.workspace_nav.pageRequested.connect(self._navigate)
+        self.workspace_nav.backendRequested.connect(self._choose_backend)
+        self.workspace_nav.sessionRequested.connect(self._load_chat_path)
+        self.workspace_nav.newChatRequested.connect(self._on_new_chat)
+        self.workspace_nav.openChatRequested.connect(self._on_load_chat)
+        self.workspace_nav.set_sessions(list_sessions())
+        self.sidebar.settingsRequested.connect(lambda: self._navigate("settings"))
+        self.chat.configureRequested.connect(self._on_model_library)
         self._build_menus()
 
         # --- сигналы ---
@@ -265,16 +309,58 @@ class MainWindow(QMainWindow):
             # на Local GGUF вместо пустого сайдбара.
             restored_backend = "local_gguf"
             self.config.active_backend = restored_backend
-        if restored_backend:
-            self.sidebar.set_active_backend(restored_backend)
-            self._load_config_into_form(restored_backend)
+        restored_backend = restored_backend or "local_gguf"
+        self.sidebar.set_active_backend(restored_backend)
+        self._load_config_into_form(restored_backend)
 
-        self._set_status("Готов. Выберите backend.")
+        self._set_status("Выберите модель в библиотеке или настройте подключение.")
 
     # ----- helpers -----
 
+    def _navigate(self, page: str) -> None:
+        if page == "phone":
+            self._on_remote_access()
+            self.workspace_nav.set_page(("chat", "models", "settings")[self._pages.currentIndex()])
+            return
+        index = {"chat": 0, "models": 1, "settings": 2}.get(page)
+        if index is None:
+            return
+        if page == "models" and self._download_worker is None:
+            self._library_page.refresh()
+        self._pages.setCurrentIndex(index)
+        self.workspace_nav.set_page(page)
+
+    def _choose_backend(self, backend_id: str) -> None:
+        if self._worker is not None or self._prepare_worker is not None:
+            self._set_status("Дождитесь завершения текущей операции.")
+            return
+        self.sidebar.set_active_backend(backend_id)
+        self._on_backend_activated(backend_id)
+        self._navigate("settings")
+
     def _set_status(self, text: str) -> None:
         self.statusBar().showMessage(text)
+        if not hasattr(self, "workspace_nav"):
+            return
+        model = ""
+        if self.backend and self.backend.id == self.sidebar.current_backend_id:
+            model = self.backend.current_model or ""
+        cls = self._backend_class(self.sidebar.current_backend_id)
+        source = cls.display_name if cls else "Выберите источник"
+        title = "Готова к диалогу" if self._model_ready else "Модель не подключена"
+        if self._prepare_worker is not None:
+            title = "Подготовка модели…"
+        elif self._worker is not None:
+            title = "Генерация ответа…"
+        self.workspace_nav.set_model_state(title, model or source, self._model_ready)
+        self.chat.set_context(model or "Модель не подключена", source)
+        self._chat_header.subtitle.setText(
+            f"{source} · {model}" if self._model_ready else "Подключите локальную или облачную модель"
+        )
+
+    def _set_controls_busy(self, busy: bool) -> None:
+        self.sidebar.set_busy(busy)
+        self.workspace_nav.set_busy(busy)
 
     def _backend_class(self, backend_id: str) -> type[Backend] | None:
         return next((c for c in ALL_BACKENDS if c.id == backend_id), None)
@@ -289,6 +375,10 @@ class MainWindow(QMainWindow):
         # Результат незавершённого запроса моделей относится к прежнему выбору.
         self._cancel_list_worker()
         self.config.active_backend = backend_id
+        if self.backend is not None and self.backend.id != backend_id:
+            self._model_ready = False
+            self.chat.set_input_enabled(False)
+            self.sidebar.set_models([], auto_emit=False)
         self._load_config_into_form(backend_id)
 
         cls = self._backend_class(backend_id)
@@ -304,6 +394,8 @@ class MainWindow(QMainWindow):
             self.sidebar.set_apply_enabled(True)
 
     def _on_apply_clicked(self) -> None:
+        if self._worker is not None or self._prepare_worker is not None:
+            return
         backend_id = self.sidebar.current_backend_id
         if not backend_id:
             return
@@ -369,23 +461,27 @@ class MainWindow(QMainWindow):
         self._set_status("Ошибка подключения.")
 
     def _on_model_changed(self, model: str) -> None:
-        if not self.backend or not model:
+        if not self.backend or not model or self._worker is not None:
+            return
+        if self.backend.id != self.sidebar.current_backend_id:
             return
         # Если уже подготовлена та же модель — ничего не делаем.
-        if self.backend.current_model == model and self._prepare_worker is None:
+        if self.backend.current_model == model and self._prepare_worker is None and self._model_ready:
+            return
+
+        # Не менять модель backend, пока её использует поток подготовки.
+        if self._prepare_worker is not None:
+            self._pending_model = model
             return
 
         self.backend.set_model(model)
         if self.sidebar.current_backend_id:
             self.config.set_last_model(self.sidebar.current_backend_id, model)
 
-        # Prepare уже идёт — запоминаем выбор, запустим после завершения.
-        if self._prepare_worker is not None:
-            self._pending_model = model
-            return
-
         self._pending_model = None
         self.chat.set_input_enabled(False)
+        self._model_ready = False
+        self._set_controls_busy(True)
         self._prepare_worker = PrepareWorker(self.backend, parent=self)
         self._prepare_worker.progress.connect(self._set_status)
         self._prepare_worker.finishedOk.connect(self._on_prepare_finished)
@@ -406,6 +502,8 @@ class MainWindow(QMainWindow):
             self._on_model_changed(pending)
             return
 
+        self._model_ready = True
+        self._set_controls_busy(False)
         self.chat.set_input_enabled(True)
         model = self.backend.current_model if self.backend else "?"
         self._set_status(f"Модель готова: {model}")
@@ -416,6 +514,8 @@ class MainWindow(QMainWindow):
             return
         self._prepare_worker = None
         self._pending_model = None
+        self._model_ready = False
+        self._set_controls_busy(False)
         self.chat.set_input_enabled(False)
         self._show_error("Не удалось подготовить модель", error)
         self._set_status("Ошибка подготовки модели.")
@@ -442,16 +542,13 @@ class MainWindow(QMainWindow):
         self.config.save()
 
     def _on_model_library(self) -> None:
-        dialog = ModelLibraryDialog(self.model_library, self)
-        dialog.useModelRequested.connect(self._use_local_model)
-        dialog.downloadRequested.connect(self._download_model)
-        self._model_library_dialog = dialog
-        try:
-            dialog.exec()
-        finally:
-            self._model_library_dialog = None
+        self._navigate("models")
 
     def _use_local_model(self, path: str) -> None:
+        if self._worker is not None or self._prepare_worker is not None:
+            self._set_status("Дождитесь завершения текущей операции.")
+            return
+        self._navigate("chat")
         backend_id = "local_gguf"
         self.sidebar.set_active_backend(backend_id)
         self._on_backend_activated(backend_id)
@@ -490,8 +587,7 @@ class MainWindow(QMainWindow):
         self._download_worker.finishedOk.connect(self._on_download_finished)
         self._download_worker.failed.connect(self._on_download_failed)
 
-        # Диалог модальный и закрывает собой статус-бар главного окна —
-        # дублируем прогресс прямо в диалог, чтобы пользователь его видел.
+        # Прогресс сохраняется на странице библиотеки при переходах между разделами.
         dialog = self._model_library_dialog
         if dialog is not None:
             self._download_worker.progress.connect(dialog.set_download_status)
@@ -599,10 +695,14 @@ class MainWindow(QMainWindow):
 
     def _on_remote_model_changed(self, model: str) -> None:
         # Модель сменили с телефона — отражаем в сайдбаре без повторного emit.
-        self.sidebar.set_models(self._remote_bridge.available_models, model, auto_emit=False)
-        backend_id = self.sidebar.current_backend_id
+        backend_id = self.backend.id if self.backend else None
+        if backend_id == self.sidebar.current_backend_id:
+            self.sidebar.set_models(self._remote_bridge.available_models, model, auto_emit=False)
         if backend_id:
             self.config.set_last_model(backend_id, model)
+        if backend_id == self.sidebar.current_backend_id and self._prepare_worker is None:
+            self._model_ready = True
+            self.chat.set_input_enabled(True)
         self._set_status(f"Модель переключена с телефона: {model}")
 
     def _on_about(self) -> None:
@@ -617,9 +717,13 @@ class MainWindow(QMainWindow):
 
     def _on_new_chat(self) -> None:
         if self._worker is not None:
-            self._on_stop()
+            self._set_status("Сначала остановите текущий ответ и дождитесь завершения.")
+            return
         self.session = ChatSession(self.config.system_prompt)
         self.chat.clear_messages()
+        self._chat_header.title.setText("Новый диалог")
+        self.workspace_nav.set_current_chat("Новый диалог")
+        self._navigate("chat")
         self._set_status("Новый чат.")
 
     def _on_save_chat(self) -> None:
@@ -644,9 +748,13 @@ class MainWindow(QMainWindow):
         except OSError as exc:
             self._show_error("Не удалось сохранить чат", str(exc))
             return
-        self._set_status(f"Сохранено: {target}")
+        self.workspace_nav.set_sessions(list_sessions())
+        self._set_status(f"Сохранено: {target.name}")
 
     def _on_load_chat(self) -> None:
+        if self._worker is not None:
+            self._set_status("Сначала остановите текущий ответ и дождитесь завершения.")
+            return
         HISTORY_DIR.mkdir(parents=True, exist_ok=True)
         path, _ = QFileDialog.getOpenFileName(
             self,
@@ -655,6 +763,12 @@ class MainWindow(QMainWindow):
             "JSON (*.json)",
         )
         if not path:
+            return
+        self._load_chat_path(path)
+
+    def _load_chat_path(self, path: str) -> None:
+        if self._worker is not None:
+            self._set_status("Сначала остановите текущий ответ и дождитесь завершения.")
             return
         try:
             self.session = load_session(Path(path))
@@ -668,11 +782,18 @@ class MainWindow(QMainWindow):
         )
         self.sidebar.set_system_prompt(system_prompt)
         self.chat.set_messages(self.session.messages)
+        title = next((m.content.splitlines()[0][:65] for m in self.session.messages if m.role == "user" and m.content.strip()), Path(path).stem)
+        self._chat_header.title.setText(title)
+        self.workspace_nav.set_current_chat(title)
+        self._navigate("chat")
         self._set_status(f"Открыт чат: {Path(path).name}")
 
     # ----- сигналы chat -----
 
     def _backend_ready(self) -> bool:
+        if self._worker is not None or self._prepare_worker is not None or not self._model_ready:
+            self._set_status("Сначала подключите и подготовьте модель.")
+            return False
         if self.backend is None:
             self._show_error("Backend не подключён", "Сначала выберите backend и нажмите «Подключить».")
             return False
@@ -685,6 +806,7 @@ class MainWindow(QMainWindow):
         """Запустить генерацию по текущему содержимому сессии."""
         self.chat.begin_streaming_assistant()
         self.chat.set_busy(True)
+        self._set_controls_busy(True)
 
         self._worker = GenerateWorker(
             backend=self.backend,
@@ -703,6 +825,9 @@ class MainWindow(QMainWindow):
             return
 
         self.session.add_user(text)
+        title = next((m.content.splitlines()[0][:65] for m in self.session.messages if m.role == "user"), "Диалог")
+        self._chat_header.title.setText(title)
+        self.workspace_nav.set_current_chat(title)
         self.chat.add_user_message(text)
         self._start_generation()
 
@@ -728,12 +853,14 @@ class MainWindow(QMainWindow):
         if text:
             self.session.add_assistant(text)
         self.chat.set_busy(False)
+        self._set_controls_busy(False)
         self._worker = None
         self._set_status("Готово.")
 
     def _on_generation_failed(self, error: str) -> None:
         self.chat.end_streaming()
         self.chat.set_busy(False)
+        self._set_controls_busy(False)
         self._worker = None
         self._show_error("Ошибка генерации", error)
         self._set_status("Ошибка.")
@@ -756,6 +883,8 @@ class MainWindow(QMainWindow):
         self._stale_list_workers = [w for w in self._stale_list_workers if w.isRunning()]
 
     def _teardown_backend(self) -> None:
+        self._model_ready = False
+        self.chat.set_input_enabled(False)
         self._cancel_list_worker()
         self._pending_model = None
         # Если идёт подготовка модели — отвяжем её сигналы.

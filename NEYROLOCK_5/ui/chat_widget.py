@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Optional
 
 from PySide6.QtCore import QTimer, Qt, Signal
-from PySide6.QtGui import QFont, QGuiApplication, QKeyEvent
+from PySide6.QtGui import QFont, QGuiApplication, QIcon, QKeyEvent
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -20,6 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from backends.base import Message
+from ui.icons import icon
 
 # ----- разбиение markdown-текста на текстовые куски и блоки кода -----
 
@@ -199,7 +201,7 @@ class ChatBubble(QFrame):
         layout.setContentsMargins(12, 8, 12, 8)
         layout.setSpacing(4)
 
-        role_label = QLabel("Вы" if self._is_user else "Ассистент")
+        role_label = QLabel("Вы" if self._is_user else "NEYROLOC")
         role_label.setObjectName("bubbleRole")
         layout.addWidget(role_label)
 
@@ -246,12 +248,6 @@ class ChatBubble(QFrame):
         btn.setObjectName("bubbleAction")
         btn.setCursor(Qt.PointingHandCursor)
         btn.setFlat(True)
-        # Локальный стиль: глобальный QSS живёт в ui/styles.py.
-        btn.setStyleSheet(
-            "QPushButton#bubbleAction{border:none;background:transparent;padding:2px 6px;"
-            "font-size:11px;color:rgba(160,175,195,0.85);}"
-            "QPushButton#bubbleAction:hover{color:#eef3fa;}"
-        )
         btn.clicked.connect(slot)
         return btn
 
@@ -363,6 +359,7 @@ class ChatWidget(QWidget):
     sendRequested = Signal(str)
     stopRequested = Signal()
     regenerateRequested = Signal()
+    configureRequested = Signal()
 
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
@@ -382,17 +379,18 @@ class ChatWidget(QWidget):
         self._stick_to_bottom = True
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(16, 16, 16, 16)
+        root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(12)
 
         # Прокручиваемая область с сообщениями.
         self._scroll = QScrollArea()
+        self._scroll.setObjectName("chatScroll")
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QFrame.NoFrame)
         self._messages_holder = QWidget()
         self._messages_layout = QVBoxLayout(self._messages_holder)
-        self._messages_layout.setContentsMargins(8, 8, 8, 8)
-        self._messages_layout.setSpacing(10)
+        self._messages_layout.setContentsMargins(16, 18, 16, 18)
+        self._messages_layout.setSpacing(20)
         self._messages_layout.addStretch(1)
         self._scroll.setWidget(self._messages_holder)
         bar = self._scroll.verticalScrollBar()
@@ -400,38 +398,71 @@ class ChatWidget(QWidget):
         bar.rangeChanged.connect(self._on_scroll_range_changed)
         root.addWidget(self._scroll, 1)
 
-        # Поле ввода + кнопки.
         input_frame = QFrame()
         input_frame.setObjectName("composer")
-        input_row = QHBoxLayout(input_frame)
-        input_row.setContentsMargins(12, 10, 12, 10)
-        input_row.setSpacing(8)
+        input_layout = QVBoxLayout(input_frame)
+        input_layout.setContentsMargins(16, 12, 14, 12)
+        input_layout.setSpacing(8)
         self._input = ChatInput()
+        self._input.setObjectName("chatInput")
+        self._input.setMinimumHeight(45)
+        self._input.setMaximumHeight(100)
         self._input.submit.connect(self._on_submit)
         self._input.textChanged.connect(self._update_send_enabled)
-        input_row.addWidget(self._input, 1)
-
-        buttons_col = QVBoxLayout()
-        buttons_col.setSpacing(6)
-        self._send_btn = QPushButton("Отправить")
-        self._send_btn.setObjectName("primary")
-        self._send_btn.clicked.connect(self._on_submit)
+        input_layout.addWidget(self._input)
+        tools = QHBoxLayout()
+        tools.setSpacing(10)
+        self._model_caption = QLabel("Модель не подключена")
+        self._model_caption.setObjectName("composerModel")
+        self._model_caption.setTextFormat(Qt.PlainText)
+        tools.addWidget(self._model_caption)
+        self._source_caption = QLabel("")
+        self._source_caption.setObjectName("hint")
+        tools.addWidget(self._source_caption)
+        tools.addStretch(1)
         self._stop_btn = QPushButton("Стоп")
+        self._stop_btn.setObjectName("stopButton")
+        self._stop_btn.setIcon(icon("stop", "#F3F2F0", 16))
         self._stop_btn.setEnabled(False)
+        self._stop_btn.setVisible(False)
         self._stop_btn.clicked.connect(self.stopRequested)
-        buttons_col.addWidget(self._send_btn)
-        buttons_col.addWidget(self._stop_btn)
-        input_row.addLayout(buttons_col)
-
+        self._send_btn = QPushButton()
+        self._send_btn.setObjectName("sendButton")
+        self._send_btn.setIcon(icon("send", "#FFFFFF", 21))
+        self._send_btn.setToolTip("Отправить сообщение · Enter")
+        self._send_btn.setAccessibleName("Отправить сообщение")
+        self._send_btn.clicked.connect(self._on_submit)
+        tools.addWidget(self._stop_btn)
+        tools.addWidget(self._send_btn)
+        input_layout.addLayout(tools)
         root.addWidget(input_frame)
+        hint = QLabel("Enter — отправить  ·  Shift + Enter — новая строка")
+        hint.setObjectName("hint")
+        root.addWidget(hint)
+        self._show_placeholder("Подключите модель, чтобы начать диалог.")
+        self._update_send_enabled()
 
-        self._show_placeholder("Выберите backend, подключите модель и начните диалог.")
+    def set_context(self, model_name: str, source_name: str = "") -> None:
+        self._context_model = model_name
+        self._context_source = source_name
+        self._source_caption.setVisible(self.width() >= 560)
+        self._model_caption.setToolTip(model_name)
+        self._model_caption.setText(
+            self._model_caption.fontMetrics().elidedText(model_name, Qt.ElideMiddle, min(240, max(100, self.width() - 200)))
+        )
+        self._source_caption.setText(source_name)
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        if hasattr(self, "_context_model"):
+            self.set_context(self._context_model, self._context_source)
 
     # ----- сообщения -----
 
     def _add_bubble(self, role: str, text: str) -> ChatBubble:
         bubble = ChatBubble(role, text)
         bubble.setMaximumWidth(760)
+        bubble.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         bubble.regenerateRequested.connect(self.regenerateRequested)
         self._bubbles.append(bubble)
         row = QWidget()
@@ -441,10 +472,9 @@ class ChatWidget(QWidget):
         row_layout.setSpacing(0)
         if role == "user":
             row_layout.addStretch(1)
-            row_layout.addWidget(bubble)
+            row_layout.addWidget(bubble, 3)
         else:
-            row_layout.addWidget(bubble)
-            row_layout.addStretch(1)
+            row_layout.addWidget(bubble, 1)
         # вставляем перед stretch
         self._messages_layout.insertWidget(self._messages_layout.count() - 1, row)
         self._refresh_actions()
@@ -501,6 +531,7 @@ class ChatWidget(QWidget):
             item = self._messages_layout.takeAt(0)
             w = item.widget()
             if w is not None:
+                w.hide()
                 w.deleteLater()
         self._flush_timer.stop()
         self._pending_chunks = []
@@ -513,6 +544,7 @@ class ChatWidget(QWidget):
             item = self._messages_layout.takeAt(0)
             w = item.widget()
             if w is not None:
+                w.hide()
                 w.deleteLater()
         self._flush_timer.stop()
         self._pending_chunks = []
@@ -527,17 +559,41 @@ class ChatWidget(QWidget):
 
     def _show_placeholder(self, text: str) -> None:
         self._clear_placeholder()
-        placeholder = QLabel(text)
-        placeholder.setObjectName("hint")
-        placeholder.setAlignment(Qt.AlignCenter)
-        placeholder.setWordWrap(True)
+        placeholder = QWidget()
         placeholder.setProperty("isPlaceholder", True)
+        placeholder.setMinimumHeight(290)
+        column = QVBoxLayout(placeholder)
+        column.setContentsMargins(20, 30, 20, 20)
+        column.setSpacing(16)
+        column.addStretch(1)
+        mark = QLabel()
+        mark.setAlignment(Qt.AlignCenter)
+        mark.setPixmap(QIcon(str(Path(__file__).resolve().parents[1] / "resources" / "mark.svg")).pixmap(68, 68))
+        column.addWidget(mark)
+        title = QLabel("Ваши идеи. Ваш интеллект.")
+        title.setObjectName("emptyTitle")
+        title.setAlignment(Qt.AlignCenter)
+        title.setWordWrap(True)
+        column.addWidget(title)
+        subtitle = QLabel(text)
+        subtitle.setObjectName("emptySubtitle")
+        subtitle.setAlignment(Qt.AlignCenter)
+        subtitle.setWordWrap(True)
+        column.addWidget(subtitle)
+        configure = QPushButton("Выбрать модель")
+        configure.setObjectName("primary")
+        configure.setIcon(icon("models", "#FFFFFF"))
+        configure.clicked.connect(self.configureRequested)
+        column.addWidget(configure, 0, Qt.AlignCenter)
+        column.addStretch(1)
         self._messages_layout.insertWidget(self._messages_layout.count() - 1, placeholder)
 
     def _clear_placeholder(self) -> None:
-        for i in range(self._messages_layout.count()):
+        for i in reversed(range(self._messages_layout.count())):
             w = self._messages_layout.itemAt(i).widget()
             if w is not None and w.property("isPlaceholder"):
+                self._messages_layout.takeAt(i)
+                w.hide()
                 w.deleteLater()
 
     def _scroll_to_bottom(self) -> None:
@@ -567,6 +623,8 @@ class ChatWidget(QWidget):
     def set_busy(self, busy: bool) -> None:
         self._busy = busy
         self._stop_btn.setEnabled(busy)
+        self._stop_btn.setVisible(busy)
+        self._send_btn.setVisible(not busy)
         self._input.setReadOnly(busy)
         self._update_send_enabled()
         self._refresh_actions()
@@ -577,7 +635,7 @@ class ChatWidget(QWidget):
         self._update_send_enabled()
 
     def _on_submit(self) -> None:
-        if self._busy:
+        if self._busy or not self._input_enabled:
             return
         text = self._input.toPlainText().strip()
         if not text:
