@@ -454,10 +454,10 @@ class ModelLibraryDialog(QDialog):
         card.setObjectName("modelCard")
         card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
         row = QHBoxLayout(card)
-        row.setContentsMargins(20, 18, 20, 18)
+        row.setContentsMargins(20, 20, 20, 20)
         row.setSpacing(16)
         glyph = QLabel()
-        glyph.setPixmap(icon("cpu", "#8cb9ff", 24).pixmap(24, 24))
+        glyph.setPixmap(icon("cpu", "#B4B3B0", 24).pixmap(24, 24))
         glyph.setFixedSize(40, 40)
         glyph.setObjectName("modelGlyph")
         row.addWidget(glyph, 0, Qt.AlignTop)
@@ -521,7 +521,7 @@ class ModelLibraryDialog(QDialog):
         for model in self._recommended:
             if model.category != category:
                 category = model.category
-                label = QLabel(category.upper())
+                label = QLabel(category)
                 label.setObjectName("sidebarSection")
                 self._recommended_cards.addWidget(label)
             self._recommended_cards.addWidget(self._model_card(model, True))

@@ -232,7 +232,7 @@ class MainWindow(QMainWindow):
         chat_page = QWidget()
         chat_layout = QVBoxLayout(chat_page)
         chat_layout.setContentsMargins(0, 0, 0, 0)
-        chat_layout.setSpacing(14)
+        chat_layout.setSpacing(16)
         self._chat_header = PageHeader("Новый диалог", "Подключите локальную или облачную модель")
         new_chat = action("Новый чат", "plus")
         new_chat.clicked.connect(self._on_new_chat)

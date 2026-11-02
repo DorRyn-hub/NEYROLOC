@@ -19,7 +19,7 @@ def caption(text: str) -> QLabel:
 
 def action(text: str, name: str, primary: bool = False) -> QPushButton:
     button = QPushButton(text)
-    button.setIcon(icon(name, "#FFFFFF" if primary else "#B4B3B0"))
+    button.setIcon(icon(name, "#151515" if primary else "#B4B3B0"))
     button.setCursor(Qt.PointingHandCursor)
     button.setObjectName("primary" if primary else "quietAction")
     return button
@@ -30,10 +30,10 @@ class PageHeader(QFrame):
         super().__init__(parent)
         self.setObjectName("pageHeader")
         self.row = QHBoxLayout(self)
-        self.row.setContentsMargins(12, 14, 12, 18)
-        self.row.setSpacing(10)
+        self.row.setContentsMargins(12, 16, 12, 16)
+        self.row.setSpacing(12)
         labels = QVBoxLayout()
-        labels.setSpacing(5)
+        labels.setSpacing(4)
         self.title = QLabel(title)
         self.title.setObjectName("pageTitle")
         self.title.setTextFormat(Qt.PlainText)
@@ -57,32 +57,32 @@ class WorkspaceNav(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("workspaceNav")
-        self.setFixedWidth(234)
+        self.setFixedWidth(248)
         root = QVBoxLayout(self)
-        root.setContentsMargins(14, 16, 14, 12)
+        root.setContentsMargins(16, 16, 16, 12)
         root.setSpacing(2)
         brand = QHBoxLayout()
         mark = QLabel()
         mark.setPixmap(QIcon(str(Path(__file__).resolve().parents[1] / "resources" / "mark.svg")).pixmap(38, 38))
         brand.addWidget(mark)
         brand_text = QVBoxLayout()
-        brand_text.setSpacing(1)
+        brand_text.setSpacing(4)
         title = QLabel("NEYROLOC")
         title.setObjectName("workspaceTitle")
         brand_text.addWidget(title)
-        subtitle = QLabel("LOCAL + CLOUD")
+        subtitle = QLabel("Локально и в облаке")
         subtitle.setObjectName("brandSubtitle")
         brand_text.addWidget(subtitle)
         brand.addLayout(brand_text, 1)
         root.addLayout(brand)
-        root.addSpacing(6)
+        root.addSpacing(12)
         self.search = QLineEdit()
         self.search.setObjectName("searchInput")
         self.search.setPlaceholderText("Поиск диалогов")
         self.search.addAction(icon("search"), QLineEdit.LeadingPosition)
         self.search.textChanged.connect(self._filter_sessions)
         root.addWidget(self.search)
-        root.addSpacing(6)
+        root.addSpacing(12)
         # Scroll the middle section while keeping brand, search and footer visible.
         navigation = QWidget()
         navigation_layout = QVBoxLayout(navigation)
@@ -96,7 +96,7 @@ class WorkspaceNav(QFrame):
         root.addWidget(middle_scroll, 1)
         footer = root
         root = navigation_layout
-        root.addWidget(caption("РАБОЧЕЕ ПРОСТРАНСТВО"))
+        root.addWidget(caption("Рабочее пространство"))
         self._pages = {}
         self._page_group = QButtonGroup(self)
         for key, title, symbol in [
@@ -108,8 +108,8 @@ class WorkspaceNav(QFrame):
             self._pages[key] = button
             button.clicked.connect(lambda checked=False, page=key: self.pageRequested.emit(page))
             root.addWidget(button)
-        root.addSpacing(6)
-        root.addWidget(caption("ИСТОЧНИКИ"))
+        root.addSpacing(12)
+        root.addWidget(caption("Источники"))
         self._providers = {}
         for key, title, symbol in [
             ("local_gguf", "Локальная модель", "cpu"),
@@ -120,9 +120,9 @@ class WorkspaceNav(QFrame):
             button.clicked.connect(lambda checked=False, backend=key: self.backendRequested.emit(backend))
             self._providers[key] = button
             root.addWidget(button)
-        root.addSpacing(6)
+        root.addSpacing(12)
         chats_row = QHBoxLayout()
-        chats_row.addWidget(caption("ДИАЛОГИ"), 1)
+        chats_row.addWidget(caption("Диалоги"), 1)
         new = action("", "plus")
         new.setFixedSize(28, 28)
         new.setToolTip("Новый диалог")
@@ -143,7 +143,7 @@ class WorkspaceNav(QFrame):
         holder = QWidget()
         self._sessions_layout = QVBoxLayout(holder)
         self._sessions_layout.setContentsMargins(0, 0, 0, 0)
-        self._sessions_layout.setSpacing(3)
+        self._sessions_layout.setSpacing(4)
         self._sessions_layout.addStretch(1)
         sessions_scroll.setWidget(holder)
         root.addWidget(sessions_scroll, 1)
@@ -178,10 +178,10 @@ class WorkspaceNav(QFrame):
         button = QPushButton(title)
         button.setObjectName("navItem")
         button.setCheckable(True)
-        button.setIcon(icon(symbol, "#76AAEE"))
-        button.setIconSize(QSize(19, 19))
+        button.setIcon(icon(symbol, "#B4B3B0", 18))
+        button.setIconSize(QSize(18, 18))
         button.setCursor(Qt.PointingHandCursor)
-        button.setMinimumHeight(30)
+        button.setMinimumHeight(24)
         button.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         return button
 
