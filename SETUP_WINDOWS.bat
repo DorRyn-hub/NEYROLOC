@@ -4,7 +4,7 @@ set PYTHONUTF8=1
 cd /d "%~dp0"
 py -3.12 -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)"
 if errorlevel 1 (
-  echo Install Python 3.12 (64-bit) with the Python launcher, then retry.
+  echo Install Python 3.12 x64 with the Python launcher, then retry.
   pause
   exit /b 1
 )
