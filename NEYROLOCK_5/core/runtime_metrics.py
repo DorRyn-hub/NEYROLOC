@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import resource
 import sys
 from dataclasses import dataclass
 
@@ -31,8 +30,11 @@ def process_memory_usage() -> MemoryUsage:
         pass
 
     try:
+        # resource is Unix-only; importing it at module load breaks Windows UI.
+        import resource
+
         maximum = int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
-    except (OSError, ValueError):
+    except (ImportError, OSError, ValueError):
         return MemoryUsage(None, is_peak=True)
     if maximum <= 0:
         return MemoryUsage(None, is_peak=True)

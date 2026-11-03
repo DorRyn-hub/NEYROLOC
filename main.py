@@ -18,6 +18,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 from ui.macos_appname import set_app_name  # noqa: E402
 from ui.main_window import MainWindow  # noqa: E402
 from ui.styles import APP_QSS  # noqa: E402
+from ui.typography import app_font, apply_application_typography  # noqa: E402
 
 
 def _application_icon() -> QIcon:
@@ -30,7 +31,7 @@ def _application_icon() -> QIcon:
     painter.setPen(Qt.NoPen)
     painter.drawRoundedRect(2, 2, 60, 60, 17, 17)
     painter.setPen(QColor("#ffffff"))
-    font = QFont("Arial", 31, QFont.Weight.Bold)
+    font = app_font(31, QFont.Weight.Bold)
     painter.setFont(font)
     painter.drawText(pixmap.rect(), Qt.AlignCenter, "N")
     painter.end()
@@ -46,12 +47,8 @@ def main() -> int:
     app.setApplicationName("NEYROLOC NEW")
     app.setApplicationDisplayName("NEYROLOC NEW")
     app.setOrganizationName("NEYROLOC")
+    apply_application_typography(app)
     app.setWindowIcon(_application_icon())
-    # ".AppleSystemUIFont" — системный шрифт macOS (San Francisco). Прежнее
-    # "SF Pro Text" не резолвится по имени и сыпало варнингом на каждом старте.
-    app_font = QFont(".AppleSystemUIFont", 13)
-    app_font.setStyleHint(QFont.StyleHint.SansSerif)
-    app.setFont(app_font)
     app.setStyleSheet(APP_QSS)
 
     window = MainWindow()
